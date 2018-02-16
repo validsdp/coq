@@ -95,6 +95,7 @@ let rec pr_constr c = match kind c with
            Name.print na ++ str":" ++ pr_constr ty ++
            cut() ++ str":=" ++ pr_constr bd) (Array.to_list fixl)) ++
          str"}")
+  | Int i -> str"Int("++str (Uint63.to_string i) ++ str")"
 
 let term_printer = ref (fun _env _sigma c -> pr_constr (EConstr.Unsafe.to_constr c))
 let print_constr_env env sigma t = !term_printer env sigma t
@@ -645,7 +646,7 @@ let map_constr_with_binders_left_to_right sigma g f l c =
   let open EConstr in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _) -> c
+    | Construct _ | Int _) -> c
   | Cast (b,k,t) -> 
     let b' = f l b in 
     let t' = f l t in
@@ -710,7 +711,7 @@ let map_constr_with_full_binders sigma g f l cstr =
   let open RelDecl in
   match EConstr.kind sigma cstr with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _) -> cstr
+    | Construct _ | Int _) -> cstr
   | Cast (c,k, t) ->
       let c' = f l c in
       let t' = f l t in
@@ -773,7 +774,7 @@ let fold_constr_with_full_binders sigma g f n acc c =
   let inj c = EConstr.Unsafe.to_constr c in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _) -> acc
+    | Construct _ | Int _) -> acc
   | Cast (c,_, t) -> f n (f n acc c) t
   | Prod (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
   | Lambda (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
@@ -803,7 +804,7 @@ let iter_constr_with_full_binders sigma g f l c =
   let open RelDecl in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _) -> ()
+    | Construct _ | Int _) -> ()
   | Cast (c,_, t) -> f l c; f l t
   | Prod (na,t,c) -> f l t; f (g (LocalAssum (na,t)) l) c
   | Lambda (na,t,c) -> f l t; f (g (LocalAssum (na,t)) l) c

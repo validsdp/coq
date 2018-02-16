@@ -916,7 +916,10 @@ let rec extern inctx scopes vars r =
   | GProj (p, c) ->
     let pr = extern_reference ?loc Id.Set.empty (ConstRef (Projection.constant p)) in
     CProj (pr, sub_extern inctx scopes vars c)
+  | GInt i ->
+     CPrim(Numeral (Uint63.to_string i,true)) (* FIXME *)
   ) r'
+
 
 and extern_typ (_,scopes) =
   extern true (Notation.current_type_scope_name (),scopes)
@@ -1227,6 +1230,7 @@ let rec glob_of_pat avoid env sigma pat = DAst.make @@ match pat with
   | PFix f -> DAst.get (Detyping.detype_names false avoid env (Global.env()) sigma (EConstr.of_constr (mkFix f))) (** FIXME bad env *)
   | PCoFix c -> DAst.get (Detyping.detype_names false avoid env (Global.env()) sigma (EConstr.of_constr (mkCoFix c)))
   | PSort s -> GSort s
+  | PInt i -> GInt i
 
 let extern_constr_pattern env sigma pat =
   extern true (None,[]) Id.Set.empty (glob_of_pat Id.Set.empty env sigma pat)

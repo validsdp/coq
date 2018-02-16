@@ -46,6 +46,7 @@ type structured_constant =
   | Const_b0 of tag
   | Const_univ_level of Univ.Level.t
   | Const_val of structured_values
+  | Const_uint of Uint63.t
 
 val pp_struct_const : structured_constant -> Pp.t
 
@@ -143,6 +144,7 @@ val val_of_proj : Constant.t -> values -> values
 val val_of_atom : atom -> values
 val val_of_int : int -> structured_values
 val val_of_block : tag -> structured_values array -> structured_values
+val val_of_uint : Uint63.t -> structured_values
 
 external val_of_annot_switch : annot_switch -> values = "%identity"
 

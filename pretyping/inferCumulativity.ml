@@ -98,6 +98,7 @@ let rec infer_fterm cv_pb infos variances hd stk =
     let variances = infer_stack infos variances stk in
     infer_vect infos variances (Array.map (mk_clos e) args)
   | FRel _ -> variances
+  | FInt _ -> variances
   | FFlex fl ->
     let variances = infer_table_key infos variances fl in
     infer_stack infos variances stk
@@ -153,6 +154,7 @@ and infer_stack infos variances (stk:CClosure.stack) =
         infer_vect infos variances (Array.map (mk_clos e) br)
       | Zshift _ -> variances
       | Zupdate _ -> variances
+      | Znative _ -> variances (* FIXME check this *)
     in
     infer_stack infos variances stk
 

@@ -1106,6 +1106,14 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 	  { uj_val = v; uj_type = tval }
     in inh_conv_coerce_to_tycon ?loc env evdref cj tycon
 
+  | GInt i ->
+        let resj =
+          try Typing.judge_of_int env.ExtraEnv.env i
+          with Invalid_argument _ ->
+            user_err ?loc ~hdr:"pretype" (str "Type of int63 should be registered first.")
+        in
+        inh_conv_coerce_to_tycon ?loc env evdref resj tycon
+
 and pretype_instance k0 resolve_tc env evdref lvar loc hyps evk update =
   let f decl (subst,update) =
     let id = NamedDecl.get_id decl in

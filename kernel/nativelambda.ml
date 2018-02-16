@@ -14,12 +14,48 @@ open Constr
 open Declarations
 open Pre_env
 open Nativevalues
-open Nativeinstr
 
 module RelDecl = Context.Rel.Declaration
 
+(** This file defines the lambda code generation phase of the native compiler *)
+type prefix = string
 
-exception NotClosed
+type lambda =
+  | Lrel          of Name.t * int
+  | Lvar          of Id.t
+  | Lmeta         of metavariable * lambda (* type *)
+  | Levar         of Evar.t * lambda (* type *) * lambda array (* arguments *)
+  | Lprod         of lambda * lambda
+  | Llam          of Name.t array * lambda
+  | Lrec          of Name.t * lambda
+  | Llet          of Name.t * lambda * lambda
+  | Lapp          of lambda * lambda array
+  | Lconst        of prefix * pconstant
+  | Lproj         of prefix * Constant.t (* prefix, projection Name.t *)
+  | Lprim         of (prefix * pconstant) option * CPrimitives.operation * lambda array
+        (* No check if None *)
+  | Liprim        of prefix * pconstant * CPrimitives.iterator * lambda array
+  | Lcase         of annot_sw * lambda * lambda * lam_branches
+                  (* annotations, term being matched, accu, branches *)
+  | Lareint       of lambda array
+  | Lif           of lambda * lambda * lambda
+  | Lfix          of (int array * int) * fix_decl
+  | Lcofix        of int * fix_decl
+  | Lmakeblock    of prefix * pconstructor * int * lambda array
+                  (* prefix, constructor Name.t, constructor tag, arguments *)
+        (* A fully applied constructor *)
+  | Lconstruct    of prefix * pconstructor (* prefix, constructor Name.t *)
+        (* A partially applied constructor *)
+  | Luint         of Uint63.t
+  | Lval          of Nativevalues.t
+  | Lsort         of Sorts.t
+  | Lind          of prefix * pinductive
+  | Llazy
+  | Lforce
+
+and lam_branches = (constructor * Name.t array * lambda) array
+
+and fix_decl =  Name.t array * lambda array * lambda array
 
 type evars =
     { evars_val : existential -> constr option;
@@ -85,9 +121,9 @@ let get_const_prefix env c =
 
 (* A generic map function *)
 
-let rec map_lam_with_binders g f n lam =
+let map_lam_with_binders g f n lam =
   match lam with
-  | Lrel _ | Lvar _  | Lconst _ | Lproj _ | Lval _ | Lsort _ | Lind _
+  | Lrel _ | Lvar _  | Lconst _ | Lproj _ | Lval _ | Lsort _ | Lind _ | Luint _
   | Lconstruct _ | Llazy | Lforce | Lmeta _ | Levar _ -> lam
   | Lprod(dom,codom) -> 
       let dom' = f n dom in
@@ -96,6 +132,9 @@ let rec map_lam_with_binders g f n lam =
   | Llam(ids,body) ->
       let body' = f (g (Array.length ids) n) body in
       if body == body' then lam else mkLlam ids body'
+  | Lrec(id,body) ->
+      let body' = f (g 1 n) body in
+      if body == body' then lam else Lrec(id,body')
   | Llet(id,def,body) ->
       let def' = f n def in
       let body' = f (g 1 n) body in
@@ -104,9 +143,12 @@ let rec map_lam_with_binders g f n lam =
       let fct' = f n fct in
       let args' = Array.smartmap (f n) args in
       if fct == fct' && args == args' then lam else mkLapp fct' args'
-  | Lprim(prefix,kn,op,args) ->
+  | Lprim(okn,op,args) ->
       let args' = Array.smartmap (f n) args in
-      if args == args' then lam else Lprim(prefix,kn,op,args')
+      if args == args' then lam else Lprim(okn,op,args')
+  | Liprim(s,c,op,args) ->
+      let args' = Array.smartmap (f n) args in
+      if args == args' then lam else Liprim(s,c,op,args')
   | Lcase(annot,t,a,br) ->
       let t' = f n t in
       let a' = f n a in
@@ -136,19 +178,9 @@ let rec map_lam_with_binders g f n lam =
   | Lmakeblock(prefix,cn,tag,args) ->
       let args' = Array.smartmap (f n) args in
       if args == args' then lam else Lmakeblock(prefix,cn,tag,args')
-  | Luint u ->
-    let u' = map_uint g f n u in
-    if u == u' then lam else Luint u'
-
-and map_uint g f n u =
-  match u with
-  | UintVal _ -> u
-  | UintDigits(prefix,c,args) ->
-    let args' = Array.smartmap (f n) args in
-    if args == args' then u else UintDigits(prefix,c,args')
-  | UintDecomp(prefix,c,a) ->
-    let a' = f n a in
-    if a == a' then u else UintDecomp(prefix,c,a')
+  | Lareint a ->
+      let a' = Array.smartmap (f n) a in
+      if a == a' then lam else Lareint a'
 
 (*s Lift and substitution *)
  
@@ -184,7 +216,7 @@ let lam_subst_args subst args =
 (* [simplify subst lam] simplify the expression [lam_subst subst lam] *)
 (* that is :                                                          *)
 (* - Reduce [let] is the definition can be substituted i.e:           *)
-(*    - a variable (rel or identifier)                                *)
+(*    - a variable (rel or Id.t)                                *)
  (*    - a constant                                                    *)
 (*    - a structured constant                                         *)
 (*    - a function                                                    *)
@@ -329,6 +361,52 @@ let rec get_alias env (kn, u as p) =
        | Cemitcodes.BCalias kn' -> get_alias env (kn', u)
        | _ -> p
 
+(* Translation of iterators *)
+
+let isint l = Lareint [|l|]
+
+let _f = Name(Id.of_string "f")
+let _min = Name (Id.of_string "min")
+let _max = Name (Id.of_string "max")
+let _cont = Name (Id.of_string "cont")
+let _aux = Name (Id.of_string "aux")
+let _i = Name (Id.of_string "i")
+let _i' = Name (Id.of_string "i'")
+let _a = Name (Id.of_string "a")
+
+let lambda_of_iterator env kn it args =
+  let prefix = get_const_prefix env (fst kn) in
+  Liprim(prefix, kn, it, args)
+
+(* Compilation of primitive *)
+let _h =  Name(Id.of_string "f")
+
+let prim env kn p args =
+  match p with
+  | CPrimitives.Iterator it ->
+    lambda_of_iterator env kn it args
+  | CPrimitives.Operation CPrimitives.Int63eqb_correct -> (* FIXME why this special case? *)
+      let prefix = get_const_prefix env (fst kn) in
+      let h = Lrel(_h,1) in
+      Llet(_h,args.(2),
+        Lif(isint h,
+            Luint (Uint63.of_int 0) (* constructor eq_refl *),
+            Lapp(Lconst (prefix,kn), [|lam_lift 1 args.(0);lam_lift 1 args.(1);h|])))
+  | CPrimitives.Operation op ->
+      let prefix = get_const_prefix env (fst kn) in
+      Lprim(Some (prefix, kn), op, args)
+
+let expand_prim env kn op arity =
+  let ids = Array.make arity Anonymous in
+  let args = make_args arity 1 in
+  Llam(ids, prim env kn op args)
+
+let lambda_of_prim env kn op args =
+  let (nparams, arity) = CPrimitives.arity op in
+  let expected = nparams + arity in
+  if Array.length args >= expected then prim env kn op args
+  else mkLapp (expand_prim env kn op expected) args
+
 (*i Global environment *)
 
 let global_env = ref empty_env 
@@ -431,23 +509,8 @@ module Renv =
   end
 
 (* What about pattern matching ?*)
-let is_lazy prefix t =
-  match kind t with
-  | App (f,args) ->
-     begin match kind f with
-     | Construct (c,_) ->
-	let entry = mkInd (fst c) in
-	(try
-	    let _ =
-	      Retroknowledge.get_native_before_match_info (!global_env).retroknowledge
-							  entry prefix c Llazy;
-	    in
-	    false
-	  with Not_found -> true)
-     | _ -> true
-     end
-  | LetIn _ -> true
-  | _ -> false
+let is_lazy t = (* APPROXIMATION *)
+  isApp t || isLetIn t
 
 let evar_value sigma ev = sigma.evars_val ev
 
@@ -536,13 +599,6 @@ let rec lambda_of_constr env sigma c =
       in
       (* translation of the argument *)
       let la = lambda_of_constr env sigma a in
-      let entry = mkInd ind in
-      let la =
-	try
-	  Retroknowledge.get_native_before_match_info (!global_env).retroknowledge
-						      entry prefix (ind,1) la
-	with Not_found -> la
-      in
       (* translation of the type *)
       let lt = lambda_of_constr env sigma t in
       (* translation of branches *)
@@ -576,27 +632,22 @@ let rec lambda_of_constr env sigma c =
       Renv.popn env (Array.length names);
       Lcofix(init, (names, ltypes, lbodies))
 
+  | Int i -> Luint i
+
 and lambda_of_app env sigma f args =
   match kind f with
   | Const (kn,u as c) ->
       let kn,u = get_alias !global_env c in
       let cb = lookup_constant kn !global_env in
-      (try
-          let prefix = get_const_prefix !global_env kn in
-	  (* We delay the compilation of arguments to avoid an exponential behavior *)
-	  let f = Retroknowledge.get_native_compiling_info
-		    (!global_env).retroknowledge (mkConst kn) prefix in
-	  let args = lambda_of_args env sigma 0 args in
-	  f args
-      with Not_found ->
       begin match cb.const_body with
+      | Primitive op -> lambda_of_prim !global_env c op (lambda_of_args env sigma 0 args)
       | Def csubst -> (* TODO optimize if f is a proj and argument is known *)
           if cb.const_inline_code then
             lambda_of_app env sigma (Mod_subst.force_constr csubst) args
           else
           let prefix = get_const_prefix !global_env kn in
           let t =
-            if is_lazy prefix (Mod_subst.force_constr csubst) then
+            if is_lazy (Mod_subst.force_constr csubst) then
               mkLapp Lforce [|Lconst (prefix, (kn,u))|]
             else Lconst (prefix, (kn,u))
           in
@@ -604,33 +655,18 @@ and lambda_of_app env sigma f args =
       | OpaqueDef _ | Undef _ ->
           let prefix = get_const_prefix !global_env kn in
           mkLapp (Lconst (prefix, (kn,u))) (lambda_of_args env sigma 0 args)
-      end)
+      end
   | Construct (c,u) ->
       let tag, nparams, arity = Renv.get_construct_info env c in
       let expected = nparams + arity in
       let nargs = Array.length args in
       let prefix = get_mind_prefix !global_env (fst (fst c)) in
       if Int.equal nargs expected then 
-      try
-	try
-	  Retroknowledge.get_native_constant_static_info
-                         (!global_env).retroknowledge
-                         f args
-          with NotClosed ->
-	    assert (Int.equal nparams 0); (* should be fine for int31 *)
-	    let args = lambda_of_args env sigma nparams args in
-	    Retroknowledge.get_native_constant_dynamic_info
-                           (!global_env).retroknowledge f prefix c args
-        with Not_found ->
-	  let args = lambda_of_args env sigma nparams args in
-	  makeblock !global_env c u tag args
+        let args = lambda_of_args env sigma nparams args in
+        makeblock !global_env c u tag args
       else
 	let args = lambda_of_args env sigma 0 args in
-	(try
-	    Retroknowledge.get_native_constant_dynamic_info
-              (!global_env).retroknowledge f prefix c args
-	  with Not_found ->
-            mkLapp (Lconstruct (prefix, (c,u))) args)
+        mkLapp (Lconstruct (prefix, (c,u))) args
   | _ -> 
       let f = lambda_of_constr env sigma f in
       let args = lambda_of_args env sigma 0 args in
@@ -667,44 +703,3 @@ let lambda_of_constr env sigma c =
 let mk_lazy c =
   mkLapp Llazy [|c|]
 
-(** Retroknowledge, to be removed once we move to primitive machine integers *)
-let compile_static_int31 fc args =
-  if not fc then raise Not_found else
-    Luint (UintVal
-    (Uint31.of_int (Array.fold_left
-       (fun temp_i -> fun t -> match kind t with
-          | Construct ((_,d),_) -> 2*temp_i+d-1
-          | _ -> raise NotClosed)
-       0 args)))
-
-let compile_dynamic_int31 fc prefix c args =
-  if not fc then raise Not_found else
-  Luint (UintDigits (prefix,c,args))
-
-(* We are relying here on the order of digits constructors *)
-let digits_from_uint digits_ind prefix i =
-  let d0 = Lconstruct (prefix, ((digits_ind, 1), Univ.Instance.empty)) in
-  let d1 = Lconstruct (prefix, ((digits_ind, 2), Univ.Instance.empty)) in
-  let digits = Array.make 31 d0 in
-  for k = 0 to 30 do
-    if Int.equal ((Uint31.to_int i lsr k) land 1) 1 then
-      digits.(30-k) <- d1
-  done;
-  digits
-
-let before_match_int31 digits_ind fc prefix c t =
-  if not fc then
-    raise Not_found
-  else
-  match t with
-  | Luint (UintVal i) ->
-     let digits = digits_from_uint digits_ind prefix i in
-     mkLapp (Lconstruct (prefix,(c, Univ.Instance.empty))) digits
-  | Luint (UintDigits (prefix,c,args)) ->
-     mkLapp (Lconstruct (prefix,(c, Univ.Instance.empty))) args
-  | _ -> Luint (UintDecomp (prefix,c,t))
-
-let compile_prim prim kn fc prefix args =
-  if not fc then raise Not_found
-  else
-    Lprim(prefix, kn, prim, args)

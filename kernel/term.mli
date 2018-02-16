@@ -572,6 +572,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Fix       of ('constr, 'types) Constr.pfixpoint
   | CoFix     of ('constr, 'types) Constr.pcofixpoint
   | Proj      of projection * 'constr
+  | Int       of Uint63.t
 [@@ocaml.deprecated "Alias for Constr.kind_of_term"]
 
 type values = Vmvalues.values

@@ -1184,6 +1184,16 @@ open Decl_kinds
           hov 2
             (keyword "Register Inline" ++ spc() ++ pr_lident id)
         )
+      | VernacRegister(id,RegisterPrimitive(ce,r)) ->
+         hov 2
+             (keyword "Register Primitive" ++ spc() ++ pr_lident id ++ spc() ++
+                str ":" ++ spc() ++
+                pr_constr_expr ce ++ spc() ++ str "as" ++ spc() ++
+                str (CPrimitives.op_or_type_to_string r))
+      | VernacRegister(id,RegisterInductive r) ->
+         hov 2
+             (keyword "Register Inductive" ++ pr_lident id ++
+                str "as" ++ spc() ++ str (CPrimitives.prim_ind_to_string r))
       | VernacComments l ->
         return (
           hov 2

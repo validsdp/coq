@@ -189,6 +189,12 @@ GEXTEND Gram
 	      l = LIST1 identref SEP "," -> VernacCombinedScheme (id, l)
       | IDENT "Register"; IDENT "Inline"; id = identref ->
           VernacRegister(id, RegisterInline)
+      | IDENT "Register"; IDENT "Primitive"; id = identref; ":"; t = lconstr; "as";
+        r = register_token ->
+         VernacRegister(id, RegisterPrimitive(t,r))
+      | IDENT "Register"; IDENT "Inductive"; id = identref; "as";
+        r = register_ind_token ->
+         VernacRegister(id, RegisterInductive r)
       | IDENT "Universe"; l = LIST1 identref -> VernacUniverse l
       | IDENT "Universes"; l = LIST1 identref -> VernacUniverse l
       | IDENT "Constraint"; l = LIST1 univ_constraint SEP "," -> VernacConstraint l
@@ -223,6 +229,53 @@ GEXTEND Gram
       | IDENT "Parameters" -> ("Parameters", (NoDischarge, Definitional))
       | IDENT "Conjectures" -> ("Conjectures", (NoDischarge, Conjectural)) ] ]
   ;
+
+  register_ind_token:
+    [ [ "ind_bool" -> CPrimitives.PIT_bool
+      | "ind_carry" -> CPrimitives.PIT_carry
+      | "ind_pair" -> CPrimitives.PIT_pair
+      | "ind_cmp" -> CPrimitives.PIT_cmp
+      | "ind_eq"  -> CPrimitives.PIT_eq] ]
+  ;
+
+  register_token:
+    [ [ r = register_prim_token -> CPrimitives.OT_op r
+      | r = register_type_token -> CPrimitives.OT_type r ] ]
+  ;
+
+  register_type_token:
+    [ [ "int63_type" -> CPrimitives.PT_int63 ] ]
+  ;
+
+  register_prim_token:
+    [ [ "int63_foldi" -> CPrimitives.Iterator CPrimitives.Int63foldi
+      | "int63_foldi_down" -> CPrimitives.Iterator CPrimitives.Int63foldi_down
+      | "int63_head0" -> CPrimitives.Operation CPrimitives.Int63head0
+      | "int63_tail0" -> CPrimitives.Operation CPrimitives.Int63tail0
+      | "int63_add" -> CPrimitives.Operation CPrimitives.Int63add
+      | "int63_sub" -> CPrimitives.Operation CPrimitives.Int63sub
+      | "int63_mul" -> CPrimitives.Operation CPrimitives.Int63mul
+      | "int63_div" -> CPrimitives.Operation CPrimitives.Int63div
+      | "int63_mod" -> CPrimitives.Operation CPrimitives.Int63mod
+      | "int63_lsr" -> CPrimitives.Operation CPrimitives.Int63lsr
+      | "int63_lsl" -> CPrimitives.Operation CPrimitives.Int63lsl
+      | "int63_land" -> CPrimitives.Operation CPrimitives.Int63land
+      | "int63_lor" -> CPrimitives.Operation CPrimitives.Int63lor
+      | "int63_lxor" -> CPrimitives.Operation CPrimitives.Int63lxor
+      | "int63_addc" -> CPrimitives.Operation CPrimitives.Int63addc
+      | "int63_subc" -> CPrimitives.Operation CPrimitives.Int63subc
+      | "int63_addcarryc" -> CPrimitives.Operation CPrimitives.Int63addCarryC
+      | "int63_subcarryc" -> CPrimitives.Operation CPrimitives.Int63subCarryC
+      | "int63_mulc" -> CPrimitives.Operation CPrimitives.Int63mulc
+      | "int63_diveucl" -> CPrimitives.Operation CPrimitives.Int63diveucl
+      | "int63_div21" -> CPrimitives.Operation CPrimitives.Int63div21
+      | "int63_addmuldiv" -> CPrimitives.Operation CPrimitives.Int63addMulDiv
+      | "int63_eq" -> CPrimitives.Operation CPrimitives.Int63eq
+      | "int63_lt" -> CPrimitives.Operation CPrimitives.Int63lt
+      | "int63_le" -> CPrimitives.Operation CPrimitives.Int63le
+      | "int63_compare" -> CPrimitives.Operation CPrimitives.Int63compare
+      | "int63_eqb_correct" -> CPrimitives.Operation CPrimitives.Int63eqb_correct] ]
+    ;
   inline:
     [ [ IDENT "Inline"; "("; i = INT; ")" -> InlineAt (int_of_string i)
       | IDENT "Inline" -> DefaultInline

@@ -12,7 +12,7 @@ open CErrors
 open Util
 open Names
 open Univ
-open Sorts
+open Term
 open Constr
 open Vars
 open Declarations
@@ -173,6 +173,27 @@ let type_of_apply env func funt argsv argstv =
 	  (make_judgev argsv argstv))
   in apply_rec 0 funt
 
+(* Type of primitive constructs *)
+
+let type_of_int env =
+  match (retroknowledge env).Retroknowledge.retro_int63 with
+  | Some (_,c) -> c
+  | None -> raise
+        (Invalid_argument "Typeops.type_of_int: int63 not_defined")
+
+let internal_type_of_int env = type_of_int env
+(* FIXME optimization
+  if renv.int_checked then renv.int_constr
+  else
+    let c = type_of_int env in
+    renv.int_checked <- true;
+    renv.int_constr <- c;
+    c
+ *)
+
+let judge_of_int env i =
+  make_judge (Constr.mkInt i) (type_of_int env)
+
 (* Type of product *)
 
 let sort_of_product env domsort rangsort =
@@ -319,6 +340,10 @@ let check_fixpoint env lna lar vdef vdeft =
   with NotConvertibleVect i ->
     error_ill_typed_rec_body env i lna (make_judgev vdef vdeft) lar
 
+(* Type of primitive constructs *)
+
+
+
 (************************************************************************)
 (************************************************************************)
 
@@ -408,6 +433,9 @@ let rec execute env cstr =
       let (fix_ty,recdef') = execute_recdef env recdef i in
       let cofix = (i,recdef') in
         check_cofix env cofix; fix_ty
+
+    (* Primitive types *)
+    | Int _ -> internal_type_of_int env
 	  
     (* Partial proofs: unsupported by the kernel *)
     | Meta _ ->
@@ -538,3 +566,85 @@ let type_of_projection_constant env (p,u) =
       Vars.subst_instance_constr u pb.proj_type
     else pb.proj_type
   | None -> raise (Invalid_argument "type_of_projection: not a projection")
+
+(* Building type of primitive operators and type *)
+
+open CPrimitives
+let check_primitive_error () =
+    raise
+      (Invalid_argument "Typeops.check_primitive_type:Not the expected type")
+
+let check_iterator_type env op t =
+  Printf.eprintf "check_iterator_type: not yet implemented\n"
+
+let typeof_prim env op =
+  let open Retroknowledge in
+  let open CPrimitives in
+  let i =
+    try type_of_int env
+    with _ ->
+      raise (Invalid_argument
+               "typeof_prim: the type int63 should be register first")
+  in
+  let type_of_bool env =
+    match (retroknowledge env).retro_bool with
+    | Some (((ind,_),u),_) -> mkIndU (ind,u)
+    | _ -> raise (Invalid_argument
+               "typeof_prim: the type bool should be register first") in
+  let type_of_carry env =
+    match (retroknowledge env).retro_carry with
+    | Some (((ind,_),u),_) -> mkIndU (ind,u)
+    | _ -> raise (Invalid_argument
+               "typeof_prim: the type carry should be register first") in
+  let type_of_pair env =
+    match (retroknowledge env).retro_pair with
+    | Some ((ind,_),u) -> mkIndU (ind,u)
+    | _ -> raise (Invalid_argument
+               "typeof_prim: the type pair should be register first") in
+  let type_of_cmp env =
+    match (retroknowledge env).retro_cmp with
+    | Some (((ind,_),u),_,_) -> mkIndU (ind,u)
+    | _ -> raise (Invalid_argument
+               "typeof_prim: the type comparison should be register first") in
+  match op with
+  | Int63head0 | Int63tail0 ->
+      mkArrow i i
+  | Int63add | Int63sub | Int63mul | Int63div | Int63mod
+  | Int63lsr | Int63lsl | Int63land | Int63lor | Int63lxor ->
+      mkArrow i (mkArrow i i)
+  | Int63addc | Int63subc | Int63addCarryC | Int63subCarryC ->
+      let c = type_of_carry env in
+      mkArrow i (mkArrow i (mkApp (c,[|i|])))
+  | Int63mulc | Int63diveucl ->
+      let p = type_of_pair env in
+      mkArrow i (mkArrow i (mkApp (p,[|i;i|])))
+  | Int63div21 ->
+      let p = type_of_pair env in
+      mkArrow i (mkArrow i (mkArrow i (mkApp (p,[|i;i|]))))
+  | Int63addMulDiv ->
+      mkArrow i (mkArrow i (mkArrow i i))
+  | Int63eq | Int63lt | Int63le ->
+      let b = type_of_bool env in
+      mkArrow i (mkArrow i b)
+  | Int63compare ->
+      let cmp = type_of_cmp env in
+      mkArrow i (mkArrow i cmp)
+  | Int63eqb_correct ->
+     raise  (Invalid_argument "typeof_prim:Int63eqb_correct:not implemented")
+
+let check_prim_type env op t =
+  if op = CPrimitives.Int63eqb_correct then
+    Format.eprintf "Warning check_prim_type: Int63eqb_correct not implemented@."
+  else
+    if not (Constr.equal (typeof_prim env op) t) then
+      raise (Invalid_argument "check_prim_type: not the expected type")
+
+let check_primitive_type env op_t t =
+  match op_t with
+  | OT_type PT_int63 ->
+    (* FIXME *)
+    if not (Constr.equal t mkSet) then check_primitive_error ()
+  | OT_op p ->
+    match p with
+    | Iterator it -> check_iterator_type env it t
+    | Operation op -> check_prim_type env op t

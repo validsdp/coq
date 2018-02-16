@@ -14,7 +14,6 @@ open Constr
 open Declarations
 open Util
 open Nativevalues
-open Nativeinstr
 open Nativelambda
 open Pre_env
 
@@ -294,7 +293,7 @@ type primitive =
   | MLmagic
   | MLarrayget
   | Mk_empty_instance
-  | Coq_primitive of CPrimitives.t * (prefix * Constant.t) option
+  | Coq_primitive of CPrimitives.t * (prefix * pconstant) option
 
 let eq_primitive p1 p2 =
   match p1, p2 with
@@ -360,7 +359,7 @@ let primitive_hash = function
   | MLmul -> 34
   | MLmagic -> 35
   | Coq_primitive (prim, None) -> combinesmall 36 (CPrimitives.hash prim)
-  | Coq_primitive (prim, Some (prefix,kn)) ->
+  | Coq_primitive (prim, Some (prefix,(kn,_))) ->
      combinesmall 37 (combine3 (String.hash prefix) (Constant.hash kn) (CPrimitives.hash prim))
   | Mk_proj -> 38
   | MLarrayget -> 39
@@ -380,7 +379,7 @@ type mllambda =
   | MLconstruct    of string * constructor * mllambda array
                    (* prefix, constructor name, arguments *)
   | MLint          of int
-  | MLuint         of Uint31.t
+  | MLuint         of Uint63.t
   | MLsetref       of string * mllambda
   | MLsequence     of mllambda * mllambda
   | MLarray        of mllambda array
@@ -445,7 +444,7 @@ let rec eq_mllambda gn1 gn2 n env1 env2 t1 t2 =
   | MLint i1, MLint i2 ->
       Int.equal i1 i2
   | MLuint i1, MLuint i2 ->
-      Uint31.equal i1 i2
+      Uint63.equal i1 i2
   | MLsetref (id1, ml1), MLsetref (id2, ml2) ->
       String.equal id1 id2 &&
       eq_mllambda gn1 gn2 n env1 env2 ml1 ml2
@@ -519,7 +518,7 @@ let rec hash_mllambda gn n env t =
   | MLint i ->
       combinesmall 11 i
   | MLuint i ->
-      combinesmall 12 (Uint31.to_int i)
+      combinesmall 12 (Uint63.hash i)
   | MLsetref (id, ml) ->
       let hid = String.hash id in
       let hml = hash_mllambda gn n env ml in
@@ -919,7 +918,7 @@ let merge_branches t =
 
 
 type prim_aux = 
-  | PAprim of string * Constant.t * CPrimitives.t * prim_aux array
+  | PAprim of (string * pconstant (*FIXME*)) option * CPrimitives.t * prim_aux array
   | PAml of mllambda
 
 let add_check cond args =
@@ -932,40 +931,15 @@ let add_check cond args =
     | _ -> cond
   in
   Array.fold_left aux cond args
-  
-let extract_prim ml_of l =
-  let decl = ref [] in
-  let cond = ref [] in
-  let rec aux l = 
-    match l with
-    | Lprim(prefix,kn,p,args) ->
-	let args = Array.map aux args in
-	cond := add_check !cond args;
-	PAprim(prefix,kn,p,args)
-    | Lrel _ | Lvar _ | Luint _ | Lval _ | Lconst _ -> PAml (ml_of l)
-    | _ -> 
-	let x = fresh_lname Anonymous in
-	decl := (x,ml_of l)::!decl;
-	PAml (MLlocal x) in
-  let res = aux l in
-  (!decl, !cond, res)
 
 let app_prim p args = MLapp(MLprimitive p, args)
 
-let to_int v =
+let (*rec*) to_int v =
   match v with
-  | MLapp(MLprimitive Mk_uint, t) ->
-     begin match t.(0) with
-     | MLuint i -> MLint (Uint31.to_int i)
-     | _ -> MLapp(MLprimitive Val_to_int, [|v|])
-     end
-  | MLapp(MLprimitive Mk_int, t) -> t.(0)
+  | MLint _ -> v
+(*  | MLapp(MLprimitive (MLlsl |  MLlsr | MLland | MLlor | MLlxor | MLadd | MLsub | MLmul), _) -> v *)
+(*  | MLif(e,b1,b2) -> MLif(e,to_int b1, to_int b2) *)
   | _ -> MLapp(MLprimitive Val_to_int, [|v|]) 
-
-let of_int v = 
-  match v with
-  | MLapp(MLprimitive Val_to_int, t) -> t.(0)
-  | _ -> MLapp(MLprimitive Mk_int,[|v|]) 
 
 let compile_prim decl cond paux =
 (*
@@ -977,7 +951,7 @@ let compile_prim decl cond paux =
  *)
   let rec opt_prim_aux paux =
     match paux with
-    | PAprim(prefix, kn, op, args) ->
+    | PAprim(o, op, args) ->
 	let args = Array.map opt_prim_aux args in
 	app_prim (Coq_primitive(op,None)) args
 (*
@@ -1004,8 +978,8 @@ let compile_prim decl cond paux =
     | PAml ml -> ml 
   and naive_prim_aux paux = 
     match paux with
-    | PAprim(prefix, kn, op, args) ->
-        app_prim (Coq_primitive(op, Some (prefix, kn))) (Array.map naive_prim_aux args)
+    | PAprim(o, op, args) ->
+        app_prim (Coq_primitive(op, o)) (Array.map naive_prim_aux args)
     | PAml ml -> ml in
 
   let compile_cond cond paux = 
@@ -1037,6 +1011,13 @@ let ml_of_instance instance u =
   else let u = Array.map ml_of_level u in
        [|MLapp (MLprimitive MLmagic, [|MLarray u|])|]
 
+let mlprim_of_iprim p kn =
+  match p with
+  | CPrimitives.Int63foldi      ->
+    Coq_primitive (CPrimitives.Iterator CPrimitives.Int63foldi, Some kn)
+  | CPrimitives.Int63foldi_down ->
+    Coq_primitive (CPrimitives.Iterator CPrimitives.Int63foldi_down, Some kn)
+
  let rec ml_of_lam env l t =
   match t with
   | Lrel(id ,i) -> get_rel env id i
@@ -1060,6 +1041,11 @@ let ml_of_instance instance u =
   | Llam(ids,body) ->
     let lnames,env = push_rels env ids in
     MLlam(lnames, ml_of_lam env l body)
+  | Lrec(id,body) ->
+      let ids,body = decompose_Llam body in
+      let lname, env = push_rel env id in
+      let lnames, env = push_rels env ids in
+      MLletrec([|lname, lnames, ml_of_lam env l body|], MLlocal lname)
   | Llet(id,def,body) ->
       let def = ml_of_lam env l def in
       let lname, env = push_rel env id in
@@ -1071,9 +1057,11 @@ let ml_of_instance instance u =
      let args = ml_of_instance env.env_univ u in
      mkMLapp (MLglobal(Gconstant (prefix, c))) args
   | Lproj (prefix,c) -> MLglobal(Gproj (prefix,c))
-  | Lprim _ ->
-      let decl,cond,paux = extract_prim (ml_of_lam env l) t in
-      compile_prim decl cond paux
+  | Lprim (o,p,args) ->
+    let p = Coq_primitive (CPrimitives.Operation p, o) in
+    mkMLapp (MLprimitive p) (Array.map (ml_of_lam env l) args)
+  | Liprim (prefix,kn,p,args) ->
+    mkMLapp(MLprimitive (Coq_primitive (CPrimitives.Iterator p, Some (prefix, kn)))) (Array.map (ml_of_lam env l) args)
   | Lcase (annot,p,a,bs) ->
       (* let predicate_uid fv_pred = compilation of p 
          let rec case_uid fv a_uid = 
@@ -1281,18 +1269,7 @@ let ml_of_instance instance u =
   | Lconstruct (prefix, (cn,u)) ->
      let uargs = ml_of_instance env.env_univ u in
       mkMLapp (MLglobal (Gconstruct (prefix, cn))) uargs
-  | Luint v ->
-     (match v with
-     | UintVal i -> MLapp(MLprimitive Mk_uint, [|MLuint i|])
-     | UintDigits (prefix,cn,ds) ->
-	let c = MLglobal (Gconstruct (prefix, cn)) in
-	let ds = Array.map (ml_of_lam env l) ds in
-	let i31 = MLapp (MLprimitive Mk_I31_accu, [|c|]) in
-	MLapp(i31, ds)
-     | UintDecomp (prefix,cn,t) ->
-	let c = MLglobal (Gconstruct (prefix, cn)) in
-	let t = ml_of_lam env l t in
-	MLapp (MLprimitive Decomp_uint, [|c;t|]))
+  | Luint i -> MLapp(MLprimitive Mk_uint, [|MLuint i|])
   | Lval v ->
       let i = push_symbol (SymbValue v) in get_value_code i
   | Lsort s ->
@@ -1308,6 +1285,13 @@ let ml_of_instance instance u =
      mkMLapp (MLglobal (Gind (prefix, ind))) uargs
   | Llazy -> MLglobal (Ginternal "lazy")
   | Lforce -> MLglobal (Ginternal "Lazy.force")
+  | Lareint args ->
+      let res = ref (MLapp(MLprimitive Is_int, [|ml_of_lam env l args.(0)|]))in
+      for i = 1 to Array.length args - 1 do
+        let t = MLapp(MLprimitive Is_int, [|ml_of_lam env l args.(i)|]) in
+        res := MLapp(MLprimitive MLand, [|!res;t|])
+      done;
+      !res
 
 let mllambda_of_lambda univ auxdefs l t =
   let env = empty_env univ () in
@@ -1614,7 +1598,7 @@ let pp_mllam fmt l =
         Format.fprintf fmt "@[(Obj.magic (%s%a) : Nativevalues.t)@]" 
           (string_of_construct prefix c) pp_cargs args
     | MLint i -> pp_int fmt i
-    | MLuint i -> Format.fprintf fmt "(Uint31.of_int %a)" pp_int (Uint31.to_int i)
+    | MLuint i -> Format.fprintf fmt "(%s)" (Uint63.compile i)
     | MLsetref (s, body) ->
 	Format.fprintf fmt "@[%s@ :=@\n %a@]" s pp_mllam body
     | MLsequence(l1,l2) ->
@@ -1752,9 +1736,9 @@ let pp_mllam fmt l =
     | Mk_empty_instance -> Format.fprintf fmt "Univ.Instance.empty"
     | Coq_primitive (op,None) ->
        Format.fprintf fmt "no_check_%s" (CPrimitives.to_string op)
-    | Coq_primitive (op, Some (prefix,kn)) ->
+    | Coq_primitive (op, Some (prefix,(c,_))) ->
         Format.fprintf fmt "%s %a" (CPrimitives.to_string op)
-		       pp_mllam (MLglobal (Gconstant (prefix, kn)))
+                       pp_mllam (MLglobal (Gconstant (prefix,c)))
   in
   Format.fprintf fmt "@[%a@]" pp_mllam l
   
@@ -1870,7 +1854,7 @@ let compile_constant env sigma prefix ~interactive con cb =
       let t = Mod_subst.force_constr t in
       let code = lambda_of_constr env sigma t in
       if !Flags.debug then Feedback.msg_debug (Pp.str "Generated lambda code");
-      let is_lazy = is_lazy prefix t in
+      let is_lazy = is_lazy t in
       let code = if is_lazy then mk_lazy code else code in
       let name =
         if interactive then LinkedInteractive prefix

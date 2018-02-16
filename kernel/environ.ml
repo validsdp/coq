@@ -256,7 +256,10 @@ let constant_context env kn =
   | Monomorphic_const _ -> Univ.AUContext.empty
   | Polymorphic_const ctx -> ctx
 
-type const_evaluation_result = NoBody | Opaque
+type const_evaluation_result =
+  | NoBody
+  | Opaque
+  | Primitive of CPrimitives.t
 
 exception NotEvaluableConst of const_evaluation_result
 
@@ -267,14 +270,14 @@ let constant_value_and_type env (kn, u) =
       let b' = match cb.const_body with
 	| Def l_body -> Some (subst_instance_constr u (Mod_subst.force_constr l_body))
 	| OpaqueDef _ -> None
-	| Undef _ -> None
+        | Undef _ | Primitive _ -> None
       in
 	b', subst_instance_constr u cb.const_type, cst
     else 
       let b' = match cb.const_body with
 	| Def l_body -> Some (Mod_subst.force_constr l_body)
 	| OpaqueDef _ -> None
-	| Undef _ -> None
+        | Undef _ | Primitive _ -> None
       in b', cb.const_type, Univ.Constraint.empty
 
 (* These functions should be called under the invariant that [env] 
@@ -296,6 +299,7 @@ let constant_value_in env (kn,u) =
 	subst_instance_constr u b
     | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
     | Undef _ -> raise (NotEvaluableConst NoBody)
+    | Primitive p -> raise (NotEvaluableConst (Primitive p))
 
 let constant_opt_value_in env cst =
   try Some (constant_value_in env cst)
@@ -307,7 +311,7 @@ let evaluable_constant kn env =
     match cb.const_body with
     | Def _ -> true
     | OpaqueDef _ -> false
-    | Undef _ -> false
+    | Undef _ | Primitive _ -> false
 
 let polymorphic_constant cst env =
   Declareops.constant_is_polymorphic (lookup_constant cst env)
@@ -504,147 +508,301 @@ let remove_hyps ids check_context check_value ctxt =
   in
   fst (remove_hyps ctxt)
 
-(*spiwack: the following functions assemble the pieces of the retroknowledge
-   note that the "consistent" register function is available in the module
-   Safetyping, Environ only synchronizes the proactive and the reactive parts*)
-
+(* Reduction of native operators *)
+open CPrimitives
 open Retroknowledge
 
-(* lifting of the "get" functions works also for "mem"*)
-let retroknowledge f env =
-  f env.retroknowledge
+let retroknowledge env = env.retroknowledge
 
-let registered env field =
-    retroknowledge mem env field
-
-let register_one env field entry =
-  { env with retroknowledge = Retroknowledge.add_field env.retroknowledge field entry }
-
-(* [register env field entry] may register several fields when needed *)
-let register env field entry =
-  match field with
-    | KInt31 (grp, Int31Type) ->
-        let i31c = match kind entry with
-                     | Ind i31t -> mkConstructUi (i31t, 1)
-		     | _ -> anomaly ~label:"Environ.register" (Pp.str "should be an inductive type.")
-	in
-        register_one (register_one env (KInt31 (grp,Int31Constructor)) i31c) field entry
-    | field -> register_one env field entry
-
-(* the Environ.register function syncrhonizes the proactive and reactive
-   retroknowledge. *)
-let dispatch =
-
-  (* subfunction used for static decompilation of int31 (after a vm_compute,
-     see pretyping/vnorm.ml for more information) *)
-  let constr_of_int31 =
-    let nth_digit_plus_one i n = (* calculates the nth (starting with 0)
-                                    digit of i and adds 1 to it
-                                    (nth_digit_plus_one 1 3 = 2) *)
-      if Int.equal (i land (1 lsl n)) 0 then
-        1
-      else
-        2
+let add_retroknowledge env (pt,c) =
+  match pt with
+  | Retro_type PT_int63 ->
+    let cte = destConst c in
+    let retro = retroknowledge env in
+    let retro =
+      match retro.retro_int63 with
+      | None -> { retro with retro_int63 = Some (cte,c) }
+      | Some(cte',_) -> assert (cte = cte'); retro in
+    { env with retroknowledge = retro }
+  | Retro_ind pit ->
+    let (ind,u) = destInd c in
+    let retro = retroknowledge env in
+    let retro =
+      match pit with
+      | PIT_bool ->
+        let r =
+          match retro.retro_bool with
+          | None -> (((ind,1),u), ((ind,2),u))
+          | Some ((((ind',_),_),_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with Retroknowledge.retro_bool = Some r }
+      | PIT_carry ->
+        let r =
+          match retro.retro_carry with
+          | None -> (((ind,1), u), ((ind,2),u))
+          | Some ((((ind',_),_),_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with retro_carry = Some r }
+      | PIT_pair ->
+        let r =
+          match retro.retro_pair with
+          | None -> ((ind,1),u)
+          | Some (((ind',_),_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with retro_pair = Some r }
+      | PIT_cmp ->
+        let r =
+          match retro.retro_cmp with
+          | None -> (((ind,1), u), ((ind,2),u), ((ind,3),u))
+          | Some ((((ind',_),_),_,_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with retro_cmp = Some r }
+      | PIT_eq ->
+        let r =
+          match retro.retro_refl with
+          | None -> ((ind,1),u)
+          | Some (((ind',_),_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with retro_refl = Some r }
     in
-      fun ind -> fun digit_ind -> fun tag ->
-	let array_of_int i =
-	  Array.init 31 (fun n -> mkConstruct
-			   (digit_ind, nth_digit_plus_one i (30-n)))
-	in
-	(* We check that no bit above 31 is set to one. This assertion used to
-	fail in the VM, and led to conversion tests failing at Qed. *)
-        assert (Int.equal (tag lsr 31) 0);
-	mkApp(mkConstruct(ind, 1), array_of_int tag)
-  in
+    { env with retroknowledge = retro }
+  | Retro_inline ->
+    let (kn, _univs) = destConst c in
+    let (cb,r) = Cmap_env.find kn env.env_globals.env_constants in
+    let cb = {cb with const_inline_code = true} in
+    let new_constants =
+      Cmap_env.add kn (cb,r) env.env_globals.env_constants in
+    let new_globals =
+      { env.env_globals with
+        env_constants = new_constants } in
+    { env with env_globals = new_globals }
 
-  (* subfunction which dispatches the compiling information of an
-     int31 operation which has a specific vm instruction (associates
-     it to the name of the coq definition in the reactive retroknowledge) *)
-  let int31_op n op prim kn =
-    { empty_reactive_info with
-      vm_compiling = Some (Clambda.compile_prim n op kn);
-      native_compiling = Some (Nativelambda.compile_prim prim (Univ.out_punivs kn));
-    }
-  in
+module type RedNativeEntries =
+  sig
+    type elem
+    type args
 
-fun rk value field ->
-  (* subfunction which shortens the (very common) dispatch of operations *)
-  let int31_op_from_const n op prim =
-    match kind value with
-      | Const kn ->  int31_op n op prim kn
-      | _ -> anomaly ~label:"Environ.register" (Pp.str "should be a constant.")
-  in
-  let int31_binop_from_const op prim = int31_op_from_const 2 op prim in
-  let int31_unop_from_const op prim = int31_op_from_const 1 op prim in
-  match field with
-    | KInt31 (grp, Int31Type) ->
-        let int31bit =
-          (* invariant : the type of bits is registered, otherwise the function
-             would raise Not_found. The invariant is enforced in safe_typing.ml *)
-          match field with
-          | KInt31 (grp, Int31Type) -> Retroknowledge.find rk (KInt31 (grp,Int31Bits))
-          | _ -> anomaly ~label:"Environ.register"
-              (Pp.str "add_int31_decompilation_from_type called with an abnormal field.")
-        in
-        let i31bit_type =
-          match kind int31bit with
-          | Ind (i31bit_type,_) -> i31bit_type
-          |  _ -> anomaly ~label:"Environ.register"
-              (Pp.str "Int31Bits should be an inductive type.")
-        in
-        let int31_decompilation =
-          match kind value with
-          | Ind (i31t,_) ->
-              constr_of_int31 i31t i31bit_type
-          | _ -> anomaly ~label:"Environ.register"
-              (Pp.str "should be an inductive type.")
-        in
-        { empty_reactive_info with
-          vm_decompile_const = Some int31_decompilation;
-          vm_before_match = Some Clambda.int31_escape_before_match;
-          native_before_match = Some (Nativelambda.before_match_int31 i31bit_type);
-        }
-    | KInt31 (_, Int31Constructor) ->
-        { empty_reactive_info with
-          vm_constant_static = Some Clambda.compile_structured_int31;
-          vm_constant_dynamic = Some Clambda.dynamic_int31_compilation;
-          native_constant_static = Some Nativelambda.compile_static_int31;
-          native_constant_dynamic = Some Nativelambda.compile_dynamic_int31;
-        }
-    | KInt31 (_, Int31Plus) -> int31_binop_from_const Cbytecodes.Kaddint31
-							  CPrimitives.Int31add
-    | KInt31 (_, Int31PlusC) -> int31_binop_from_const Cbytecodes.Kaddcint31
-							   CPrimitives.Int31addc
-    | KInt31 (_, Int31PlusCarryC) -> int31_binop_from_const Cbytecodes.Kaddcarrycint31
-								CPrimitives.Int31addcarryc
-    | KInt31 (_, Int31Minus) -> int31_binop_from_const Cbytecodes.Ksubint31
-							   CPrimitives.Int31sub
-    | KInt31 (_, Int31MinusC) -> int31_binop_from_const Cbytecodes.Ksubcint31
-							    CPrimitives.Int31subc
-    | KInt31 (_, Int31MinusCarryC) -> int31_binop_from_const
-	                                Cbytecodes.Ksubcarrycint31 CPrimitives.Int31subcarryc
-    | KInt31 (_, Int31Times) -> int31_binop_from_const Cbytecodes.Kmulint31
-							   CPrimitives.Int31mul
-    | KInt31 (_, Int31TimesC) -> int31_binop_from_const Cbytecodes.Kmulcint31
-							   CPrimitives.Int31mulc
-    | KInt31 (_, Int31Div21) -> int31_op_from_const 3 Cbytecodes.Kdiv21int31
-                                                           CPrimitives.Int31div21
-    | KInt31 (_, Int31Diveucl) -> int31_binop_from_const Cbytecodes.Kdivint31
-							 CPrimitives.Int31diveucl
-    | KInt31 (_, Int31AddMulDiv) -> int31_op_from_const 3 Cbytecodes.Kaddmuldivint31
-                                                         CPrimitives.Int31addmuldiv
-    | KInt31 (_, Int31Compare) -> int31_binop_from_const Cbytecodes.Kcompareint31
-							     CPrimitives.Int31compare
-    | KInt31 (_, Int31Head0) -> int31_unop_from_const Cbytecodes.Khead0int31
-							  CPrimitives.Int31head0
-    | KInt31 (_, Int31Tail0) -> int31_unop_from_const Cbytecodes.Ktail0int31
-							  CPrimitives.Int31tail0
-    | KInt31 (_, Int31Lor) -> int31_binop_from_const Cbytecodes.Klorint31
-							 CPrimitives.Int31lor
-    | KInt31 (_, Int31Land) -> int31_binop_from_const Cbytecodes.Klandint31
-							  CPrimitives.Int31land
-    | KInt31 (_, Int31Lxor) -> int31_binop_from_const Cbytecodes.Klxorint31
-							  CPrimitives.Int31lxor
-    | _ -> empty_reactive_info
+    val get : args -> int -> elem
+    val get_int :  elem -> Uint63.t
+    val is_refl : elem -> bool
+    val mk_int_refl : env -> elem -> elem
+    val mkInt : env -> Uint63.t -> elem
+    val mkBool : env -> bool -> elem
+    val mkCarry : env -> bool -> elem -> elem (* true if carry *)
+    val mkPair : env -> elem -> elem -> elem
+    val mkLt : env -> elem
+    val mkEq : env -> elem
+    val mkGt : env -> elem
+    val mkClos : Name.t -> constr -> constr -> elem array -> elem
 
-let _ = Hook.set Retroknowledge.dispatch_hook dispatch
+  end
+
+module type RedNative =
+ sig
+   type elem
+   type args
+   val red_op : env -> CPrimitives.operation -> args -> elem
+   val red_iterator : env -> CPrimitives.iterator -> constr -> args -> elem
+      (* the constr represents the iterator *)
+   val red_prim : env -> CPrimitives.t -> constr -> args -> elem option
+ end
+
+module RedNative (E:RedNativeEntries) :
+  RedNative with type elem = E.elem
+  with type args = E.args =
+struct
+  type elem = E.elem
+  type args = E.args
+
+  let get_int args i = E.get_int (E.get args i)
+
+  let get_int1 args = get_int args 0
+
+  let get_int2 args = get_int args 0, get_int args 1
+
+  let get_int3 args =
+    get_int args 0, get_int args 1, get_int args 2
+
+  let red_op env op args =
+    let open CPrimitives in
+    match op with
+    | Int63head0      ->
+      let i = get_int1 args in E.mkInt env (Uint63.head0 i)
+    | Int63tail0      ->
+      let i = get_int1 args in E.mkInt env (Uint63.tail0 i)
+    | Int63add        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.add i1 i2)
+    | Int63sub        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.sub i1 i2)
+    | Int63mul        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.mul i1 i2)
+    | Int63div        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.div i1 i2)
+    | Int63mod        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.rem i1 i2)
+    | Int63lsr        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.l_sr i1 i2)
+    | Int63lsl        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.l_sl i1 i2)
+    | Int63land       ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.l_and i1 i2)
+    | Int63lor        ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.l_or i1 i2)
+    | Int63lxor       ->
+      let i1, i2 = get_int2 args in E.mkInt env (Uint63.l_xor i1 i2)
+    | Int63addc       ->
+      let i1, i2 = get_int2 args in
+      let s = Uint63.add i1 i2 in
+      E.mkCarry env (Uint63.lt s i1) (E.mkInt env s)
+    | Int63subc       ->
+      let i1, i2 = get_int2 args in
+      let s = Uint63.sub i1 i2 in
+      E.mkCarry env (Uint63.lt i1 i2) (E.mkInt env s)
+    | Int63addCarryC  ->
+      let i1, i2 = get_int2 args in
+      let s = Uint63.add (Uint63.add i1 i2) (Uint63.of_int 1) in
+      E.mkCarry env (Uint63.le s i1) (E.mkInt env s)
+    | Int63subCarryC  ->
+      let i1, i2 = get_int2 args in
+      let s = Uint63.sub (Uint63.sub i1 i2) (Uint63.of_int 1) in
+      E.mkCarry env (Uint63.le i1 i2) (E.mkInt env s)
+    | Int63mulc       ->
+      let i1, i2 = get_int2 args in
+      let (h, l) = Uint63.mulc i1 i2 in
+      E.mkPair env (E.mkInt env h) (E.mkInt env l)
+    | Int63diveucl    ->
+      let i1, i2 = get_int2 args in
+      let q,r = Uint63.div i1 i2, Uint63.rem i1 i2 in
+      E.mkPair env (E.mkInt env q) (E.mkInt env r)
+    | Int63div21      ->
+      let i1, i2, i3 = get_int3 args in
+      let q,r = Uint63.div21 i1 i2 i3 in
+      E.mkPair env (E.mkInt env q) (E.mkInt env r)
+    | Int63addMulDiv  ->
+      let p, i, j = get_int3 args in
+      E.mkInt env
+        (Uint63.l_or
+           (Uint63.l_sl i p)
+           (Uint63.l_sr j (Uint63.sub (Uint63.of_int Uint63.uint_size) p)))
+    | Int63eq         ->
+      let i1, i2 = get_int2 args in
+      E.mkBool env (Uint63.equal i1 i2)
+    | Int63lt         ->
+      let i1, i2 = get_int2 args in
+      E.mkBool env (Uint63.lt i1 i2)
+    | Int63le         ->
+      let i1, i2 = get_int2 args in
+      E.mkBool env (Uint63.le i1 i2)
+    | Int63compare    ->
+      let i1, i2 = get_int2 args in
+      begin match Uint63.compare i1 i2 with
+        | x when x < 0 ->  E.mkLt env
+        | 0 -> E.mkEq env
+        | _ -> E.mkGt env
+      end
+    | Int63eqb_correct ->
+      if E.is_refl (E.get args 2) then E.mk_int_refl env (E.get args 0)
+      else raise (Invalid_argument "red_prim:eqb_correct:not refl")
+
+  (* Reduction des iterateurs *)
+  (* foldi_cont A B f min max cont
+   *     ---> min < max
+   *       lam a. f min (foldi A B f (min + 1) max cont) a
+   *    ---> min = max
+   *       lam a. f min cont a
+   *    ---> min > max
+   *       lam a. cont a
+  *)
+
+
+  let red_iterator env op it args =
+    match op with
+    | Int63foldi ->
+      let _A = E.get args 0 in
+      let _B = E.get args 1 in
+      let f = E.get args 2 in
+      let min = get_int args 3 in
+      let max = get_int args 4 in
+      let cont = E.get args 5 in
+      let subst = (*[|_A;_B;f;E.get args 3 (* min *);
+                    E.get args 4 (* max *);cont|] *)
+        [|cont; E.get args 4 (* max *);
+          E.get args 3;f;_B;_A|] in
+      (* _A->#1;_B->#2;f->#3;min->#4;max ->#5;cont->#6 *)
+      let name = Name (Id.of_string "a") in
+      let typ =  mkRel 1 (*_A*) in
+      (* a->#1;_A->#2;_B->#3;f->#4;min->#5;max ->#6;cont->#7 *)
+      let body =
+        if Uint63.lt min max then
+          begin
+            let minp1 = Uint63.add min (Uint63.of_int 1) in
+            mkApp (mkRel 4(*f*),
+                   [|mkRel 5 (* min *);
+                     mkApp (it,
+                            [|mkRel 2 (* _A *);
+                              mkRel 3 (* _B *);
+                              mkRel 4 (* f *);
+                              Constr.mkInt minp1; (* min + 1 *)
+                              mkRel 6 (* max *);
+                              mkRel 7 (* cont *)
+                            |]);
+                     mkRel 1 (* a*)
+                   |])
+          end
+        else
+        if Uint63.equal min max then
+          mkApp(mkRel 4(*f *),
+                [| mkRel 5; (* min *)
+                   mkRel 7; (* cont *)
+                   mkRel 1  (* a *)
+                |])
+        else
+          mkApp(mkRel 7,[|mkRel 1|])
+      in
+      E.mkClos name typ body subst
+    | Int63foldi_down ->
+      let _A = E.get args 0 in
+      let _B = E.get args 1 in
+      let f = E.get args 2 in
+      let min = get_int args 4 in
+      let max = get_int args 3 in
+      let cont = E.get args 5 in
+      let subst = [|cont; E.get args 3 (* max *);
+                    E.get args 4;f;_B;_A|] in
+      (* _A->#1;_B->#2;f->#3;min->#4;max ->#5;cont->#6 *)
+      let name = Name (Id.of_string "a") in
+      let typ =  mkRel 1 (*_A*) in
+      (* a->#1;_A->#2;_B->#3;f->#4;min->#5;max ->#6;cont->#7 *)
+      let body =
+        if Uint63.lt min max then
+          begin
+            let maxp1 = Uint63.sub max (Uint63.of_int 1) in
+            mkApp (mkRel 4(*f*),
+                   [|mkRel 6 (* max *);
+                     mkApp (it,
+                            [|mkRel 2 (* _A *);
+                              mkRel 3 (* _B *);
+                              mkRel 4 (* f *);
+                              Constr.mkInt maxp1; (* max + 1 *)
+                              mkRel 5 (* min *);
+                              mkRel 7 (* cont *)
+                                                    |]);
+                                       mkRel 1 (* a*)
+                               |])
+                end
+              else
+              if Uint63.equal min max then
+                      mkApp(mkRel 4(*f *),
+                            [| mkRel 5; (* min *)
+                                     mkRel 7; (* cont *)
+                                     mkRel 1  (* a *)
+                            |])
+              else
+                      mkApp(mkRel 7,[|mkRel 1|])
+            in
+            E.mkClos name typ body subst
+
+  let red_prim env p f args =
+    let r =
+      match p with
+      | Iterator it -> red_iterator env it f args
+      | Operation op -> red_op env op args
+    in Some r
+
+end
+

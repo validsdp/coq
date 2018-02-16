@@ -106,6 +106,7 @@ let change_vars =
       | GRec _ -> user_err ?loc Pp.(str "Local (co)fixes are not supported")
       | GSort _ as x -> x
       | GHole _ as x -> x
+      | GInt _ as x -> x
       | GCast(b,c) ->
 	  GCast(change_vars mapping b,
 		Miscops.map_cast_type (change_vars mapping) c)
@@ -286,6 +287,7 @@ let rec alpha_rt excluded rt =
 	   )
     | GRec _ -> user_err Pp.(str "Not handled GRec")
     | GSort _
+    | GInt _
     | GHole _ as rt -> rt
     | GCast (b,c) ->
 	GCast(alpha_rt excluded b,
@@ -347,6 +349,7 @@ let is_free_in id =
     | GCast (b,(CastConv t|CastVM t|CastNative t)) -> is_free_in b || is_free_in t
     | GCast (b,CastCoerce) -> is_free_in b
     | GProj (_,c) -> is_free_in c
+    | GInt _ -> false
     ) x
   and is_free_in_br (_,(ids,_,rt)) =
     (not (Id.List.mem id ids)) && is_free_in rt
@@ -437,6 +440,7 @@ let replace_var_by_term x_id term =
       | GRec _ -> raise (UserError(None,str "Not handled GRec"))
       | GSort _
       | GHole _ as rt -> rt
+      | GInt _ as rt -> rt
       | GCast(b,c) ->
 	  GCast(replace_var_by_pattern b,
 		Miscops.map_cast_type replace_var_by_pattern c)
@@ -521,7 +525,7 @@ let expand_as =
       | PatCstr(_,patl,_) -> List.fold_left add_as map patl
   in
   let rec expand_as map = DAst.map (function
-      | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ as rt -> rt
+      | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ | GInt _ as rt -> rt
       | GVar id as rt ->
 	  begin
 	    try

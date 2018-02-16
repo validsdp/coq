@@ -32,6 +32,7 @@ open Lemmas
 open Misctypes
 open Locality
 open Vernacinterp
+open ComAssumption
 
 module NamedDecl = Context.Named.Declaration
 
@@ -1836,14 +1837,11 @@ let vernac_locate = function
   | LocateOther (s, qid) -> print_located_other s qid
   | LocateFile f -> locate_file f
 
+(* Primitives have to be universe monomorphic for now *)
 let vernac_register id r =
  if Proof_global.there_are_pending_proofs () then
-    user_err Pp.(str "Cannot register a primitive while in proof editing mode.");
-  let kn = Constrintern.global_reference id.v in
-  if not (isConstRef kn) then
-    user_err Pp.(str "Register inline: a constant is expected");
-  match r with
-  | RegisterInline -> Global.register_inline (destConstRef kn)
+    CErrors.user_err (Pp.str "Cannot register a primitive while in proof editing mode.");
+ do_register id r
 
 (********************)
 (* Proof management *)

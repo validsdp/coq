@@ -5,12 +5,45 @@ open Term
 open Constr
 open Declarations
 open Vmvalues
-open Cbytecodes
-open Cinstr
 open Pre_env
 open Pp
 
 let pr_con sp = str(Names.Label.to_string (Constant.label sp))
+
+type lambda =
+  | Lrel          of Name.t * int
+  | Lvar          of Id.t
+  | Levar         of Evar.t * lambda array
+  | Lprod         of lambda * lambda
+  | Llam          of Name.t array * lambda
+  | Lrec          of Name.t * lambda
+  | Llet          of Name.t * lambda * lambda
+  | Lapp          of lambda * lambda array
+  | Lconst        of pconstant
+  | Lprim         of pconstant option * CPrimitives.operation * lambda array
+        (* No check if None *)
+  | Lcase         of case_info * reloc_table * lambda * lambda * lam_branches
+  | Lareint       of lambda array
+  | Lif           of lambda * lambda * lambda
+  | Lfix          of (int array * int) * fix_decl
+  | Lcofix        of int * fix_decl
+  | Lint          of int
+  | Lmakeblock    of int * lambda array
+  | Luint         of Uint63.t
+  | Lval          of structured_values
+  | Lsort         of Sorts.t
+  | Lind          of pinductive
+  | Lproj         of int * Constant.t * lambda
+
+(* We separate branches for constant and non-constant constructors. If the OCaml
+   limitation on non-constant constructors is reached, remaining branches are
+   stored in [extra_branches]. *)
+and lam_branches =
+  { constant_branches : lambda array;
+    nonconstant_branches : (Name.t array * lambda) array }
+(*    extra_branches : (name array * lambda) array } *)
+
+and fix_decl =  Name.t array * lambda array * lambda array
 
 (** Printing **)
 
@@ -46,6 +79,13 @@ let rec pp_lam lam =
                          spc() ++
                          pp_lam body ++
                          str ")")
+  | Lrec(id, body) ->  hov 1
+        (str "(rec " ++
+           Name.print id ++
+           str " =>" ++
+           spc() ++
+           pp_lam body ++
+           str ")")
   | Llet(id,def,body) -> hov 0
                            (str "let " ++
                             Name.print id ++
@@ -77,6 +117,10 @@ let rec pp_lam lam =
                   pp_names ids ++ str " => " ++ pp_lam c)
                (Array.to_list branches.nonconstant_branches)))
          ++ cut() ++ str "end")
+  | Lif (t, bt, bf) ->
+      v 0 (str "(if " ++ pp_lam t ++
+             cut () ++ str "then " ++ pp_lam bt ++
+             cut() ++ str "else " ++ pp_lam bf ++ str ")")
   | Lfix((t,i),(lna,tl,bl)) ->
     let fixl = Array.mapi (fun i id -> (id,t.(i),tl.(i),bl.(i))) lna in
     hov 1
@@ -104,22 +148,30 @@ let rec pp_lam lam =
       (str "(makeblock " ++ int tag ++ spc() ++
        prlist_with_sep spc pp_lam (Array.to_list args) ++
        str")")
+  | Luint i -> str (Uint63.to_string i)
   | Lval _ -> str "values"
   | Lsort s -> pp_sort s
   | Lind ((mind,i), _) -> MutInd.print mind ++ str"#" ++ int i
-  | Lprim((kn,_u),ar,op,args) ->
-    hov 1
-      (str "(PRIM " ++ pr_con kn ++  spc() ++
-       prlist_with_sep spc pp_lam  (Array.to_list args) ++
-       str")")
+  | Lprim(Some (kn,_u),op,args) ->
+     hov 1
+         (str "(PRIM " ++ pr_con kn ++  spc() ++
+            prlist_with_sep spc pp_lam  (Array.to_list args) ++
+            str")")
+  | Lprim(None,op,args) ->
+     hov 1
+         (str "(PRIM_NC " ++ str (CPrimitives.operation_to_string op) ++  spc() ++
+            prlist_with_sep spc pp_lam (Array.to_list args) ++
+            str")")
+  | Lareint a->
+     hov 1
+         (str "(are_int " ++ (prlist_with_sep spc pp_lam (Array.to_list a))
+          ++ str ")")
   | Lproj(i,kn,arg) ->
     hov 1
       (str "(proj#" ++ int i ++ spc() ++ pr_con kn ++ str "(" ++ pp_lam arg
        ++ str ")")
   | Lint i ->
     Pp.(str "(int:" ++ int i ++ str ")")
-  | Luint _ ->
-    str "(uint)"
 
 (*s Constructors *)
 
@@ -151,9 +203,9 @@ let shift subst = subs_shft (1, subst)
 
 (* A generic map function *)
 
-let rec map_lam_with_binders g f n lam =
+let map_lam_with_binders g f n lam =
   match lam with
-  | Lrel _ | Lvar _  | Lconst _ | Lval _ | Lsort _ | Lind _ | Lint _ -> lam
+  | Lrel _ | Lvar _  | Lconst _ | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _ -> lam
   | Levar (evk, args) ->
     let args' = Array.smartmap (f n) args in
     if args == args' then lam else Levar (evk, args')
@@ -164,6 +216,9 @@ let rec map_lam_with_binders g f n lam =
   | Llam(ids,body) ->
     let body' = f (g (Array.length ids) n) body in
     if body == body' then lam else mkLlam ids body'
+  | Lrec(id,body) ->
+      let body' = f (g 1 n) body in
+      if body == body' then lam else Lrec(id,body')
   | Llet(id,def,body) ->
     let def' = f n def in
     let body' = f (g 1 n) body in
@@ -192,6 +247,11 @@ let rec map_lam_with_binders g f n lam =
     in
     if t == t' && a == a' && branches == branches' then lam else
       Lcase(ci,rtbl,t',a',branches')
+  | Lif(t,bt,bf) ->
+      let t' = f n t in
+      let bt' = f n bt in
+      let bf' = f n bf in
+      if t == t' && bt == bt' && bf == bf' then lam else Lif(t',bt',bf')
   | Lfix(init,(ids,ltypes,lbodies)) ->
     let ltypes' = Array.smartmap (f n) ltypes in
     let lbodies' = Array.smartmap (f (g (Array.length ids) n)) lbodies in
@@ -205,25 +265,15 @@ let rec map_lam_with_binders g f n lam =
   | Lmakeblock(tag,args) ->
     let args' = Array.smartmap (f n) args in
     if args == args' then lam else Lmakeblock(tag,args')
-  | Lprim(kn,ar,op,args) ->
+  | Lprim(kn,op,args) ->
     let args' = Array.smartmap (f n) args in
-    if args == args' then lam else Lprim(kn,ar,op,args')
+    if args == args' then lam else Lprim(kn,op,args')
+  | Lareint a ->
+      let a' = Array.smartmap (f n) a in
+      if a == a' then lam else Lareint a'
   | Lproj(i,kn,arg) ->
     let arg' = f n arg in
     if arg == arg' then lam else Lproj(i,kn,arg')
-  | Luint u ->
-    let u' = map_uint g f n u in
-    if u == u' then lam else Luint u'
-
-and map_uint g f n u =
-  match u with
-  | UintVal _ -> u
-  | UintDigits(args) ->
-    let args' = Array.smartmap (f n) args in
-    if args == args' then u else UintDigits(args')
-  | UintDecomp(a) ->
-    let a' = f n a in
-    if a == a' then u else UintDecomp(a')
 
 (*s Lift and substitution *)
 
@@ -271,28 +321,58 @@ let lam_subst_args subst args =
 
 let can_subst lam =
   match lam with
-  | Lrel _ | Lvar _ | Lconst _
+  | Lrel _ | Lvar _ | Lconst _ | Luint _
   | Lval _ | Lsort _ | Lind _ | Llam _ -> true
   | _ -> false
+
+
+let can_merge_if bt bf =
+  match bt, bf with
+  | Llam(idst,_), Llam(idsf,_) -> true
+  | _ -> false
+
+let merge_if t bt bf =
+  let (idst,bodyt) = decompose_Llam bt in
+  let (idsf,bodyf) = decompose_Llam bf in
+  let nt = Array.length idst in
+  let nf = Array.length idsf in
+  let common,idst,idsf =
+    if nt = nf then idst, [||], [||]
+    else
+      if nt < nf then idst,[||], Array.sub idsf nt (nf - nt)
+      else idsf, Array.sub idst nf (nt - nf), [||] in
+  Llam(common,
+       Lif(lam_lift (Array.length common) t,
+           mkLlam idst bodyt,
+           mkLlam idsf bodyf))
+
 
 let rec simplify subst lam =
   match lam with
   | Lrel(id,i) -> lam_subst_rel lam id i subst
 
   | Llet(id,def,body) ->
-    let def' = simplify subst def in
-    if can_subst def' then simplify (cons def' subst) body
-    else
-      let body' = simplify (lift subst) body in
-      if def == def' && body == body' then lam
-      else Llet(id,def',body')
+      let def' = simplify subst def in
+      if can_subst def' then simplify (cons def' subst) body
+      else
+        let body' = simplify (lift subst) body in
+        if def == def' && body == body' then lam
+        else Llet(id,def',body')
 
   | Lapp(f,args) ->
-    begin match simplify_app subst f subst args with
+      begin match simplify_app subst f subst args with
       | Lapp(f',args') when f == f' && args == args' -> lam
       | lam' -> lam'
-    end
+      end
 
+  | Lif(t,bt,bf) ->
+      let t' = simplify subst t in
+      let bt' = simplify subst bt in
+      let bf' = simplify subst bf in
+      if can_merge_if bt' bf' then merge_if t' bt' bf'
+      else
+        if t == t' && bt == bt' && bf == bf' then lam
+        else Lif(t',bt',bf')
   | _ -> map_lam_with_binders liftn simplify subst lam
 
 and simplify_app substf f substa args =
@@ -352,18 +432,20 @@ let rec occurrence k kind lam =
     if n = k then
       if kind then false else raise Not_found
     else kind
-  | Lvar _  | Lconst _  | Lval _ | Lsort _ | Lind _ | Lint _ -> kind
+  | Lvar _  | Lconst _  | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _ -> kind
   | Levar (_, args) ->
     occurrence_args k kind args
   | Lprod(dom, codom) ->
     occurrence k (occurrence k kind dom) codom
   | Llam(ids,body) ->
     let _ = occurrence (k+Array.length ids) false body in kind
+  | Lrec(id,body) ->
+      let _ = occurrence (k+1) false body in kind
   | Llet(_,def,body) ->
     occurrence (k+1) (occurrence k kind def) body
   | Lapp(f, args) ->
     occurrence_args k (occurrence k kind f) args
-  | Lprim(_,_,_,args) | Lmakeblock(_,args) ->
+  | Lprim(_,_,args) | Lmakeblock(_,args) ->
     occurrence_args k kind args
   | Lcase(_ci,_rtbl,t,a,branches) ->
     let kind = occurrence k (occurrence k kind t) a in
@@ -374,23 +456,21 @@ let rec occurrence k kind lam =
     in
     Array.iter on_b branches.nonconstant_branches;
     !r
+  | Lif (t, bt, bf) ->
+      let kind = occurrence k kind t in
+      kind && occurrence k kind bt && occurrence k kind bf
   | Lfix(_,(ids,ltypes,lbodies))
   | Lcofix(_,(ids,ltypes,lbodies)) ->
     let kind = occurrence_args k kind ltypes in
     let _ = occurrence_args (k+Array.length ids) false lbodies in
     kind
+  | Lareint a ->
+      occurrence_args k kind a
   | Lproj(_,_,arg) ->
     occurrence k kind arg
-  | Luint u -> occurrence_uint k kind u
 
 and occurrence_args k kind args =
   Array.fold_left (occurrence k) kind args
-
-and occurrence_uint k kind u =
-  match u with
-  | UintVal _ -> kind
-  | UintDigits args -> occurrence_args k kind args
-  | UintDecomp t -> occurrence k kind t
 
 let occur_once lam =
   try let _ = occurrence 1 true lam in true
@@ -439,11 +519,12 @@ let check_compilable ib =
 
 let is_value lc =
   match lc with
-  | Lval _ | Lint _ -> true
+  | Lval _ | Lint _ | Luint _ -> true
   | _ -> false
 
 let get_value lc =
   match lc with
+  | Luint i -> val_of_uint i
   | Lval v -> v
   | Lint i -> val_of_int i
   | _ -> raise Not_found
@@ -489,28 +570,157 @@ let rec get_alias env kn =
      | Cemitcodes.BCalias kn' -> get_alias env kn'
      | _ -> kn)
 
+(* Translation of iterators *)
+
+let isle l1 l2 = Lprim(None, CPrimitives.Int63le, [|l1;l2|])
+let islt l1 l2 = Lprim(None, CPrimitives.Int63lt, [|l1;l2|])
+let areint l1 l2 = Lareint [|l1; l2|]
+let isint l = Lareint [|l|]
+let add63 l1 l2 =Lprim(None, CPrimitives.Int63add, [|l1;l2|])
+let sub63 l1 l2 =Lprim(None, CPrimitives.Int63sub, [|l1;l2|])
+let one63 = Lint 1
+
+let _f = Name(Id.of_string "f")
+let _min = Name (Id.of_string "min")
+let _max = Name (Id.of_string "max")
+let _cont = Name (Id.of_string "cont")
+let _aux = Name (Id.of_string "aux")
+let _i = Name (Id.of_string "i")
+let _i' = Name (Id.of_string "i'")
+let _a = Name (Id.of_string "a")
+
+let mkLrel id i = Lrel(id,i)
+
+let r_f = mkLrel _f
+let r_min = mkLrel _min
+let r_max = mkLrel _max
+let r_cont = mkLrel _cont
+let r_aux = mkLrel _aux
+let r_i = mkLrel _i
+let r_a = mkLrel _a
+
+let lambda_of_iterator kn op args =
+  match op with
+  | CPrimitives.Int63foldi ->
+      (* args = [|A;B;f;min;max;cont;extra|] *)
+      (*
+         if min <= max then
+           (rec aux i a =
+              if i < max then f i (aux (i+1)) a
+              else f i cont a)
+            min
+         else
+	   (fun a => cont a)
+       *)
+
+      let extra =
+        if Array.length args > 6 then
+          Array.sub args 6 (Array.length args - 6)
+        else [||] in
+      let extra4 = Array.map (lam_lift 4) extra in
+      Llet(_cont, args.(5),
+      Llet(_max, lam_lift 1 args.(4),
+      Llet(_min, lam_lift 2 args.(3),
+      Llet(_f, lam_lift 3 args.(2),
+      (* f->#1;min->#2;max->#3;cont->#4 *)
+      Lif(areint (r_min 2) (r_max 3), (*then*)
+	  Lif(isle (r_min 2) (r_max 3), (*then*)
+              Lapp(Lrec(_aux,
+                        Llam([|_i;_a|],
+                             Lif(islt (r_i 2) (r_max 6),
+                                 Lapp(r_f 4,
+                                      [| r_i 2;
+                                         Llam([|_a|],
+                                              Lapp(r_aux 4,
+                                                   [| add63 (r_i 3) one63;
+                                                      r_a 1|]));
+                                         r_a 1|]),
+                                 Lapp(r_f 4, [|r_i 2; r_cont 7; r_a 1|])))),
+                   Array.append [|r_min 2|] extra4),
+              mkLapp
+                (Llam([|_a|],Lapp(r_cont 5,[|r_a 1|])))
+                extra4),
+          Lapp(Lconst kn,
+               Array.append
+                 [|lam_lift 4 args.(0); lam_lift 4 args.(1);
+                   r_f 1; r_min 2; r_max 3; r_cont 4|]
+                 extra4))))))
+
+   | CPrimitives.Int63foldi_down ->
+       (* args = [|A;B;f;max;min;cont;extra|] *)
+      (*
+         if min <= max then
+           (rec aux i a =
+              if min < i then f i (aux (i-1)) a
+              else f i cont a)
+            max
+         else
+	   (fun a => cont a)
+       *)
+
+      let extra =
+        if Array.length args > 6 then
+          Array.sub args 6 (Array.length args - 6)
+        else [||] in
+      let extra4 = Array.map (lam_lift 4) extra in
+      Llet(_cont, args.(5),
+      Llet(_max, lam_lift 1 args.(3),
+      Llet(_min, lam_lift 2 args.(4),
+      Llet(_f, lam_lift 3 args.(2),
+      (* f->#1;min->#2;max->#3;cont->#4 *)
+      Lif(areint (r_min 2) (r_max 3), (*then*)
+	  Lif(isle (r_min 2) (r_max 3), (*then*)
+              Lapp(Lrec(_aux,
+                        Llam([|_i;_a|],
+                             Lif(islt (r_min 5) (r_i 2),
+                                 Lapp(r_f 4,
+                                      [| r_i 2;
+                                         Llam([|_a|],
+                                              Lapp(r_aux 4,
+                                                   [| sub63 (r_i 3) one63;
+                                                      r_a 1|]));
+                                         r_a 1|]),
+                                 Lapp(r_f 4, [|r_i 2; r_cont 7; r_a 1|])))),
+                   Array.append [|r_max 3|] extra4),
+              mkLapp
+                (Llam([|_a|],Lapp(r_cont 5,[|r_a 1|])))
+                extra4),
+          Lapp(Lconst kn,
+               Array.append
+                 [|lam_lift 4 args.(0); lam_lift 4 args.(1);
+                   r_f 1; r_max 3; r_min 2; r_cont 4|]
+                 extra4))))))
+
+
+
+
+
 (* Compilation of primitive *)
 
 let _h =  Name(Id.of_string "f")
 
-(*
+let prim kn p args =
+  match p with
+  | CPrimitives.Iterator it ->
+    lambda_of_iterator kn it args
+  | CPrimitives.Operation CPrimitives.Int63eqb_correct -> (* FIXME why this special case? *)
+      let h = Lrel(_h,1) in
+      Llet(_h,args.(2),
+        Lif(isint h,
+            Lint 0 (* constructor eq_refl *),
+            Lapp(Lconst kn, [|lam_lift 1 args.(0);lam_lift 1 args.(1);h|])))
+  | CPrimitives.Operation op -> Lprim(Some kn, op, args)
+
 let expand_prim kn op arity =
   let ids = Array.make arity Anonymous in
   let args = make_args arity 1 in
   Llam(ids, prim kn op args)
-*)
 
-let compile_prim n op kn fc args =
-  if not fc then raise Not_found
-  else
-    Lprim(kn, n, op, args)
-
-    (*
+let lambda_of_prim kn op args =
   let (nparams, arity) = CPrimitives.arity op in
   let expected = nparams + arity in
   if Array.length args >= expected then prim kn op args
   else mkLapp (expand_prim kn op expected) args
-*)
 
 (*i Global environment *)
 
@@ -661,13 +871,6 @@ let rec lambda_of_constr env c =
 
     (* translation of the argument *)
     let la = lambda_of_constr env a in
-    let entry = mkInd ind in
-    let la =
-      try
-        Retroknowledge.get_vm_before_match_info env.global_env.retroknowledge
-          entry la
-      with Not_found -> la
-    in
     (* translation of the type *)
     let lt = lambda_of_constr env t in
     (* translation of branches *)
@@ -716,87 +919,30 @@ let rec lambda_of_constr env c =
     let lc = lambda_of_constr env c in
     Lproj (n,kn,lc)
 
+  | Int i -> Lint (Uint63.to_int i)
+
 and lambda_of_app env f args =
   match Constr.kind f with
   | Const (kn,u as c) ->
-    let kn = get_alias env.global_env kn in
-    (* spiwack: checks if there is a specific way to compile the constant
-                if there is not, Not_found is raised, and the function
-                falls back on its normal behavior *)
-    (try
-      (* We delay the compilation of arguments to avoid an exponential behavior *)
-      let f = Retroknowledge.get_vm_compiling_info env.global_env.retroknowledge
-          (mkConstU (kn,u)) in
-      let args = lambda_of_args env 0 args in
-      f args
-    with Not_found ->
-    let cb = lookup_constant kn env.global_env in
-    begin match cb.const_body with
+      let kn = get_alias env.global_env kn in
+      let cb = lookup_constant kn env.global_env in
+      begin match cb.const_body with
+      | Primitive op -> lambda_of_prim (kn,u) op (lambda_of_args env 0 args)
       | Def csubst when cb.const_inline_code ->
-        lambda_of_app env (Mod_subst.force_constr csubst) args
+          lambda_of_app env (Mod_subst.force_constr csubst) args
       | Def _ | OpaqueDef _ | Undef _ -> mkLapp (Lconst c) (lambda_of_args env 0 args)
-    end)
+      end
   | Construct (c,_) ->
-    let tag, nparams, arity = Renv.get_construct_info env c in
-    let nargs = Array.length args in
-    if Int.equal (nparams + arity) nargs then (* fully applied *)
-      (* spiwack: *)
-      (* 1/ tries to compile the constructor in an optimal way,
-            it is supposed to work only if the arguments are
-            all fully constructed, fails with Cbytecodes.NotClosed.
-            it can also raise Not_found when there is no special
-            treatment for this constructor
-            for instance: tries to to compile an integer of the
-                form I31 D1 D2 ... D31 to [D1D2...D31] as
-                a processor number (a caml number actually) *)
-      try
-        try
-          Retroknowledge.get_vm_constant_static_info
-            env.global_env.retroknowledge
-            f args
-        with NotClosed ->
-          (* 2/ if the arguments are not all closed (this is
-                              expectingly (and it is currently the case) the only
-                              reason why this exception is raised) tries to
-                              give a clever, run-time behavior to the constructor.
-                              Raises Not_found if there is no special treatment
-                              for this integer.
-                              this is done in a lazy fashion, using the constructor
-                              Bspecial because it needs to know the continuation
-                              and such, which can't be done at this time.
-                              for instance, for int31: if one of the digit is
-                                  not closed, it's not impossible that the number
-                                  gets fully instanciated at run-time, thus to ensure
-                                  uniqueness of the representation in the vm
-                                  it is necessary to try and build a caml integer
-                                  during the execution *)
-          let rargs = Array.sub args nparams arity in
-          let args = lambda_of_args env nparams rargs in
-          Retroknowledge.get_vm_constant_dynamic_info
-            env.global_env.retroknowledge
-            f args
-      with Not_found ->
-        (* 3/ if no special behavior is available, then the compiler
-           falls back to the normal behavior *)
+      let tag, nparams, arity = Renv.get_construct_info env c in
+      let nargs = Array.length args in
+      if nparams < nargs then (* got all parameters *)
         let args = lambda_of_args env nparams args in
         makeblock tag 0 arity args
-    else
-      let args = lambda_of_args env nparams args in
-      (* spiwack: tries first to apply the run-time compilation
-                behavior of the constructor, as in 2/ above *)
-      (try
-         (Retroknowledge.get_vm_constant_dynamic_info
-            env.global_env.retroknowledge
-            f) args
-       with Not_found ->
-         if nparams <= nargs then (* got all parameters *)
-           makeblock tag 0 arity args
-         else (* still expecting some parameters *)
-           makeblock tag (nparams - nargs) arity empty_args)
+      else makeblock tag (nparams - nargs) arity empty_args
   | _ ->
-    let f = lambda_of_constr env f in
-    let args = lambda_of_args env 0 args in
-    mkLapp f args
+      let f = lambda_of_constr env f in
+      let args = lambda_of_args env 0 args in
+      mkLapp f args
 
 and lambda_of_args env start args =
   let nargs = Array.length args in
@@ -825,41 +971,3 @@ let lambda_of_constr ~optimize genv c =
     Feedback.msg_debug (pp_lam lam);
   lam
 
-(** Retroknowledge, to be removed once we move to primitive machine integers *)
-let compile_structured_int31 fc args =
-  if not fc then raise Not_found else
-    Luint (UintVal
-    (Uint31.of_int (Array.fold_left
-       (fun temp_i -> fun t -> match kind t with
-          | Construct ((_,d),_) -> 2*temp_i+d-1
-          | _ -> raise NotClosed)
-       0 args)))
-
-let dynamic_int31_compilation fc args =
-  if not fc then raise Not_found else
-  Luint (UintDigits args)
-
-(* We are relying here on the tags of digits constructors *)
-let digits_from_uint i =
-  let d0 = Lint 0 in
-  let d1 = Lint 1 in
-  let digits = Array.make 31 d0 in
-  for k = 0 to 30 do
-    if Int.equal ((Uint31.to_int i lsr k) land 1) 1 then
-      digits.(30-k) <- d1
-  done;
-  digits
-
-let int31_escape_before_match fc t =
-  if not fc then
-    raise Not_found
-  else
-  match t with
-  | Luint (UintVal i) ->
-    let digits = digits_from_uint i in
-    Lmakeblock (1, digits)
-  | Luint (UintDigits args) ->
-    Lmakeblock (1,args)
-  | Luint (UintDecomp _) ->
-    assert false
-  | _ -> Luint (UintDecomp t)

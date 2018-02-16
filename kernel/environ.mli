@@ -144,11 +144,15 @@ val type_in_type_constant : Constant.t -> env -> bool
 
 (** {6 ... } *)
 (** [constant_value env c] raises [NotEvaluableConst Opaque] if
-   [c] is opaque and [NotEvaluableConst NoBody] if it has no
-   body and [NotEvaluableConst IsProj] if [c] is a projection 
+   [c] is opaque, [NotEvaluableConst NoBody] if it has no
+   body, [NotEvaluableConst IsProj] if [c] is a projection,
+   [NotEvaluableConst (Primitive p)] if [c] is primitive [p]
    and [Not_found] if it does not exist in [env] *)
 
-type const_evaluation_result = NoBody | Opaque
+type const_evaluation_result =
+  | NoBody
+  | Opaque
+  | Primitive of CPrimitives.t
 exception NotEvaluableConst of const_evaluation_result
 
 val constant_type : env -> Constant.t puniverses -> types constrained
@@ -253,7 +257,8 @@ type unsafe_type_judgment = types punsafe_type_judgment
 
 (** {6 Compilation of global declaration } *)
 
-val compile_constant_body : env -> constant_universes -> constant_def -> Cemitcodes.body_code option
+val compile_constant_body : env -> constant_universes ->
+  constr Mod_subst.substituted constant_def -> Cemitcodes.body_code option
 
 exception Hyp_not_found
 
@@ -266,16 +271,43 @@ val apply_to_hyp : named_context_val -> variable ->
 
 val remove_hyps : Id.Set.t -> (Context.Named.Declaration.t -> Context.Named.Declaration.t) -> (Pre_env.lazy_val -> Pre_env.lazy_val) -> named_context_val -> named_context_val
 
-
-
-open Retroknowledge
-(** functions manipulating the retroknowledge 
-    @author spiwack *)
-val retroknowledge : (retroknowledge->'a) -> env -> 'a
-
-val registered : env -> field -> bool
-
-val register : env -> field -> Retroknowledge.entry -> env
-
 (** Native compiler *)
 val no_link_info : Pre_env.link_info
+
+
+(** {5 Reduction of primitive} *)
+val retroknowledge : env -> Retroknowledge.retroknowledge
+val add_retroknowledge : env -> Retroknowledge.action * constr -> env
+
+module type RedNativeEntries =
+  sig
+    type elem
+    type args
+
+    val get : args -> int -> elem
+    val get_int :  elem -> Uint63.t
+    val is_refl : elem -> bool
+    val mk_int_refl : env -> elem -> elem
+    val mkInt : env -> Uint63.t -> elem
+    val mkBool : env -> bool -> elem
+    val mkCarry : env -> bool -> elem -> elem (* true if carry *)
+    val mkPair : env -> elem -> elem -> elem
+    val mkLt : env -> elem
+    val mkEq : env -> elem
+    val mkGt : env -> elem
+    val mkClos : Name.t -> constr -> constr -> elem array -> elem
+  end
+
+module type RedNative =
+ sig
+   type elem
+   type args
+   val red_op : env -> CPrimitives.operation -> args -> elem
+   val red_iterator : env -> CPrimitives.iterator -> constr -> args -> elem
+   val red_prim : env -> CPrimitives.t -> constr -> args -> elem option
+ end
+
+module RedNative :
+  functor (E:RedNativeEntries) ->
+    RedNative with type elem = E.elem
+    with type args = E.args

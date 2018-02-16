@@ -13,6 +13,7 @@ open Cemitcodes
 open Constr
 open Declarations
 open Pre_env
+open Names
 
 (** Should only be used for monomorphic terms *)
 val compile : fail_on_error:bool ->
@@ -20,8 +21,9 @@ val compile : fail_on_error:bool ->
 (** init, fun, fv *)
 
 val compile_constant_body : fail_on_error:bool ->
-			    env -> constant_universes -> constant_def -> body_code option
+  env -> constant_universes -> Constr.t Mod_subst.substituted constant_def ->
+  body_code option
 
 (** Shortcut of the previous function used during module strengthening *)
 
-val compile_alias : Names.Constant.t -> body_code
+val compile_alias : Constant.t -> body_code

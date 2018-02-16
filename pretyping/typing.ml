@@ -262,6 +262,9 @@ let judge_of_letin env name defj typj j =
   { uj_val = mkLetIn (name, defj.uj_val, typj.utj_val, j.uj_val) ;
     uj_type = subst1 defj.uj_val j.uj_type }
 
+let judge_of_int env v =
+  Termops.on_judgment EConstr.of_constr (judge_of_int env v)
+
 (* cstr must be in n.f. w.r.t. evars and execute returns a judgement
    where both the term and type are in n.f. *)
 let rec execute env evdref cstr =
@@ -364,6 +367,9 @@ let rec execute env evdref cstr =
         let tj = execute env evdref t in
 	let tj = e_type_judgment env evdref tj in
         e_judge_of_cast env evdref cj k tj
+
+    | Int i ->
+        judge_of_int env i
 
 and execute_recdef env evdref (names,lar,vdef) =
   let larj = execute_array env evdref lar in

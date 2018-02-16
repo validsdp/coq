@@ -482,7 +482,7 @@ let rec build_entry_lc env funnames avoid rt : glob_constr build_entry_return =
   observe (str " Entering : " ++ Printer.pr_glob_constr_env env rt);
   let open CAst in
   match DAst.get rt with
-    | GRef _ | GVar _ | GEvar _ | GPatVar _ | GSort _  | GHole _ ->
+    | GRef _ | GVar _ | GEvar _ | GPatVar _ | GSort _  | GHole _ | GInt _ ->
 	(* do nothing (except changing type of course) *)
 	mk_result [] rt avoid
     | GApp(_,_) ->
@@ -593,6 +593,7 @@ let rec build_entry_lc env funnames avoid rt : glob_constr build_entry_return =
 	    | GRec _ -> user_err Pp.(str "Not handled GRec")
             | GProj _ -> user_err Pp.(str "Funind does not support primitive projections")
 	    | GProd _ -> user_err Pp.(str "Cannot apply a type")
+            | GInt _ -> user_err Pp.(str "Cannot apply an integer")
 	end (* end of the application treatement *)
 
     | GLambda(n,_,t,b) ->
@@ -1227,7 +1228,7 @@ let rebuild_cons env nb_args relname args crossed_types rt =
    TODO: Find a valid way to deal with implicit arguments here!
 *)
 let rec compute_cst_params relnames params gt = DAst.with_val (function
-  | GRef _ | GVar _ | GEvar _ | GPatVar _ -> params
+  | GRef _ | GVar _ | GEvar _ | GPatVar _ | GInt _ -> params
   | GApp(f,args) ->
     begin match DAst.get f with
     | GVar relname' when Id.Set.mem relname' relnames ->

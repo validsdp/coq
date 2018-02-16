@@ -21,6 +21,8 @@ open Decl_kinds
 val do_assumptions : locality * polymorphic * assumption_object_kind ->
   Vernacexpr.inline -> (Vernacexpr.ident_decl list * constr_expr) with_coercion list -> bool
 
+val do_register : Misctypes.lident -> Vernacexpr.register_kind -> unit
+
 (************************************************************************)
 (** Internal API  *)
 (************************************************************************)

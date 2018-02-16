@@ -141,6 +141,7 @@ let body_of_constant_body cb =
   | Undef _ -> None
   | Def c -> Some (instantiate cb (Mod_subst.force_constr c))
   | OpaqueDef o -> Some (instantiate cb (Opaqueproof.force_proof otab o))
+  | Primitive _ -> None (* FIXME *)
 
 let body_of_constant cst = body_of_constant_body (lookup_constant cst)
 
@@ -266,11 +267,8 @@ let with_global f =
   let (a, ctx) = f (env ()) (current_dirpath ()) in
     push_context_set false ctx; a
 
-(* spiwack: register/unregister functions for retroknowledge *)
-let register field value by_clause =
-  globalize0 (Safe_typing.register field value by_clause)
-
 let register_inline c = globalize0 (Safe_typing.register_inline c)
+let register_inductive c r = globalize0 (Safe_typing.register_inductive c r)
 
 let set_strategy k l =
   GlobalSafeEnv.set_safe_env (Safe_typing.set_strategy (safe_env ()) k l)

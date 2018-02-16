@@ -127,6 +127,7 @@ and ml_ast =
   | MLdummy  of kill_reason
   | MLaxiom
   | MLmagic  of ml_ast
+  | MLuint   of Uint63.t
 
 and ml_pattern =
   | Pcons   of global_reference * ml_pattern list

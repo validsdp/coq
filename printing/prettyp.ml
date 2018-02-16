@@ -195,7 +195,7 @@ let opacity env =
   | ConstRef cst ->
       let cb = Environ.lookup_constant cst env in
       (match cb.const_body with
-	| Undef _ -> None
+        | Undef _ | Primitive _ -> None
 	| OpaqueDef _ -> Some FullyOpaque
 	| Def _ -> Some
           (TransparentMaybeOpacified
@@ -572,7 +572,7 @@ let print_constant with_values sep sp udecl =
     let open Univ in
     let otab = Global.opaque_tables () in
     match cb.const_body with
-    | Undef _ | Def _ ->
+    | Undef _ | Def _ | Primitive _ (* TODO check this *) ->
       begin
         match cb.const_universes with
         | Monomorphic_const ctx -> Monomorphic_const_entry ctx, []
@@ -755,7 +755,10 @@ let print_full_pure_context env sigma =
 	      | Def c ->
 		str "Definition " ++ print_basename con ++ cut () ++
                 str "  : " ++ pr_ltype_env env sigma typ ++ cut () ++ str " := " ++
-                pr_lconstr_env env sigma (Mod_subst.force_constr c))
+                pr_lconstr_env env sigma (Mod_subst.force_constr c)
+              | Primitive _ ->
+                 str "Primitive " ++
+                   print_basename con ++ str " : " ++ cut () ++ pr_ltype_env env sigma typ)
           ++ str "." ++ fnl () ++ fnl ()
       | "INDUCTIVE" ->
 	  let mind = Global.mind_of_delta_kn kn in

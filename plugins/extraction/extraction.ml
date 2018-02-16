@@ -277,7 +277,7 @@ let rec extract_type env db j c args =
 	   | (Info, TypeScheme) ->
 	       let mlt = extract_type_app env db (r, type_sign env typ) args in
 	       (match cb.const_body with
-		  | Undef _ | OpaqueDef _ -> mlt
+                  | Undef _ | OpaqueDef _ | Primitive _ -> mlt
 		  | Def _ when is_custom r -> mlt
 		  | Def lbody ->
 		      let newc = applistc (Mod_subst.force_constr lbody) args in
@@ -291,7 +291,7 @@ let rec extract_type env db j c args =
 	   | (Info, Default) ->
                (* Not an ML type, for example [(c:forall X, X->X) Type nat] *)
 	       (match cb.const_body with
-		  | Undef _  | OpaqueDef _ -> Tunknown (* Brutal approx ... *)
+                  | Undef _  | OpaqueDef _ | Primitive _ -> Tunknown (* Brutal approx ... *)
 		  | Def lbody ->
 		      (* We try to reduce. *)
 		      let newc = applistc (Mod_subst.force_constr lbody) args in
@@ -304,7 +304,7 @@ let rec extract_type env db j c args =
        if Projection.unfolded p then Tunknown
        else extract_type env db j (mkProj (Projection.unfold p, t)) args
     | Case _ | Fix _ | CoFix _ -> Tunknown
-    | Var _ | Meta _ | Evar _ | Cast _ | LetIn _ | Construct _ -> assert false
+    | Var _ | Meta _ | Evar _ | Cast _ | LetIn _ | Construct _ | Int _ -> assert false
 
 (*s Auxiliary function dealing with type application.
   Precondition: [r] is a type scheme represented by the signature [s],
@@ -521,7 +521,7 @@ and mlt_env env r = match r with
   | ConstRef kn ->
      let cb = Environ.lookup_constant kn env in
      match cb.const_body with
-     | Undef _ | OpaqueDef _ -> None
+     | Undef _ | OpaqueDef _ | Primitive _ -> None
      | Def l_body ->
         match lookup_typedef kn cb with
         | Some _ as o -> o
@@ -628,6 +628,7 @@ let rec extract_term env mle mlt c args =
     | CoFix (i,recd) ->
  	extract_app env mle mlt (extract_fix env mle i recd) args
     | Cast (c,_,_) -> extract_term env mle mlt c args
+    | Int i -> assert (args = []); MLuint i
     | Ind _ | Prod _ | Sort _ | Meta _ | Evar _ | Var _ -> assert false
 
 (*s [extract_maybe_term] is [extract_term] for usual terms, else [MLdummy] *)
@@ -1006,7 +1007,7 @@ let extract_constant env kn cb =
     | (Logic,Default) -> warn_log (); Dterm (r, MLdummy Kprop, Tdummy Kprop)
     | (Info,TypeScheme) ->
         (match cb.const_body with
-	  | Undef _ -> warn_info (); mk_typ_ax ()
+          | Primitive _ | Undef _ -> warn_info (); mk_typ_ax ()
 	  | Def c ->
 	     (match cb.const_proj with
 	      | None -> mk_typ (Mod_subst.force_constr c)
@@ -1018,7 +1019,7 @@ let extract_constant env kn cb =
             else mk_typ_ax ())
     | (Info,Default) ->
         (match cb.const_body with
-	  | Undef _ -> warn_info (); mk_ax ()
+          | Primitive _ | Undef _ -> warn_info (); mk_ax ()
 	  | Def c ->
 	     (match cb.const_proj with
 	      | None -> mk_def (Mod_subst.force_constr c)
@@ -1041,7 +1042,7 @@ let extract_constant_spec env kn cb =
     | (Info, TypeScheme) ->
 	let s,vl = type_sign_vl env typ in
 	(match cb.const_body with
-	  | Undef _ | OpaqueDef _ -> Stype (r, vl, None)
+          | Undef _ | OpaqueDef _ | Primitive _ -> Stype (r, vl, None)
 	  | Def body ->
 	      let db = db_from_sign s in
               let body = Mod_subst.force_constr body in

@@ -235,6 +235,7 @@ let build_beq_scheme mode kn =
         | Fix _   -> raise (EqUnknown "fix")
         | Meta _  -> raise (EqUnknown "meta-variable")
         | Evar _  -> raise (EqUnknown "existential variable")
+        | Int _ -> raise (EqUnknown "int")
     in
       aux t
   in

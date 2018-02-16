@@ -93,6 +93,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Fix       of ('constr, 'types) pfixpoint
   | CoFix     of ('constr, 'types) pcofixpoint
   | Proj      of projection * 'constr
+  | Int       of Uint63.t
 
 type values = Vmvalues.values
 
@@ -584,4 +585,4 @@ let kind_of_type t = match kind_of_term t with
   | (Rel _ | Meta _ | Var _ | Evar _ | Const _ 
   | Proj _ | Case _ | Fix _ | CoFix _ | Ind _)
     -> AtomicType (t,[||])
-  | (Lambda _ | Construct _) -> failwith "Not a type"
+  | (Lambda _ | Construct _ | Int _) -> failwith "Not a type"

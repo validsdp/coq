@@ -136,7 +136,7 @@ NATSYNTAXCMO:=plugins/syntax/nat_syntax_plugin.cmo
 OTHERSYNTAXCMO:=$(addprefix plugins/syntax/, \
         z_syntax_plugin.cmo \
         r_syntax_plugin.cmo \
-	int31_syntax_plugin.cmo \
+	int63_syntax_plugin.cmo \
 	ascii_syntax_plugin.cmo \
         string_syntax_plugin.cmo )
 DERIVECMO:=plugins/derive/derive_plugin.cmo

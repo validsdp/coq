@@ -99,10 +99,13 @@ type projection_entry = {
   proj_entry_ind : MutInd.t;
   proj_entry_arg : int }
 
+type primitive_entry = types in_constant_universes_entry * CPrimitives.op_or_type
+
 type 'a constant_entry =
   | DefinitionEntry of 'a definition_entry
   | ParameterEntry of parameter_entry
   | ProjectionEntry of projection_entry
+  | PrimitiveEntry of primitive_entry
 
 (** {6 Modules } *)
 

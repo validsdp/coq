@@ -62,6 +62,7 @@
 open Util
 open Names
 open Declarations
+open Constr
 open Context.Named.Declaration
 
 module NamedDecl = Context.Named.Declaration
@@ -128,7 +129,7 @@ type safe_environment =
     engagement : engagement option;
     required : vodigest DPMap.t;
     loads : (ModPath.t * module_body) list;
-    local_retroknowledge : Retroknowledge.action list;
+    local_retroknowledge : (Retroknowledge.action * Constr.t) list;
     native_symbols : Nativecode.symbols DPMap.t }
 
 and modvariant =
@@ -203,6 +204,7 @@ let check_engagement env expected_impredicative_set =
 let get_opaque_body env cbo =
   match cbo.const_body with
   | Undef _ -> assert false
+  | Primitive _ -> assert false
   | Def _ -> `Nothing
   | OpaqueDef opaque ->
       `Opaque
@@ -415,7 +417,7 @@ let globalize_constant_universes env cb =
   | Monomorphic_const cstrs ->
     Now (false, cstrs) ::
     (match cb.const_body with
-     | (Undef _ | Def _) -> []
+     | (Undef _ | Def _ | Primitive _) -> []
      | OpaqueDef lc ->
        match Opaqueproof.get_constraints (Environ.opaque_tables env) lc with
        | None -> []
@@ -439,6 +441,11 @@ let constraints_of_sfb env sfb =
   | SFBmind mib -> globalize_mind_universes mib
   | SFBmodtype mtb -> [Now (false, mtb.mod_constraints)]
   | SFBmodule mb -> [Now (false, mb.mod_constraints)]
+
+let add_retroknowledge pttc senv =
+  { senv with
+    env = Environ.add_retroknowledge senv.env pttc;
+    local_retroknowledge = pttc::senv.local_retroknowledge }
 
 (** A generic function for adding a new field in a same environment.
     It also performs the corresponding [add_constraints]. *)
@@ -533,7 +540,15 @@ let add_constant dir l decl senv =
       | GlobalRecipe r ->
         let cb = Term_typing.translate_recipe senv.env kn r in
         if no_section then Declareops.hcons_const_body cb else cb in
-    add_constant_aux no_section senv (kn, cb) in
+    add_constant_aux no_section senv (kn, cb)
+  in
+  let senv =
+    match decl with
+    | ConstantEntry (_,(Entries.PrimitiveEntry (_,CPrimitives.OT_type t))) ->
+          let pttc = Retroknowledge.Retro_type t, Constr.mkConst kn in
+      add_retroknowledge pttc senv
+    | _ -> senv
+  in
   kn, senv
 
 (** Insertion of inductive types *)
@@ -896,20 +911,6 @@ let typing senv = Typeops.infer (env_of_senv senv)
 
 (** {6 Retroknowledge / native compiler } *)
 
-(** universal lifting, used for the "get" operations mostly *)
-let retroknowledge f senv =
-  Environ.retroknowledge f (env_of_senv senv)
-
-let register field value by_clause senv =
-  (* todo : value closed, by_clause safe, by_clause of the proper type*)
-  (* spiwack : updates the safe_env with the information that the register
-     action has to be performed (again) when the environment is imported *)
-  { senv with
-    env = Environ.register senv.env field value;
-    local_retroknowledge =
-      Retroknowledge.RKRegister (field,value)::senv.local_retroknowledge
-  }
-
 (* This function serves only for inlining constants in native compiler for now,
 but it is meant to become a replacement for environ.register *)
 let register_inline kn senv =
@@ -924,6 +925,85 @@ let register_inline kn senv =
   let new_globals = { env.env_globals with env_constants = new_constants } in
   let env = { env with env_globals = new_globals } in
   { senv with env = env_of_pre_env env }
+
+let check_register_ind (mind,i) r env =
+  let mb = Environ.lookup_mind mind env in
+  let error b s =
+    if b then
+      CErrors.user_err ~hdr:"check_register_ind" (Pp.str s) in
+  error (Array.length mb.mind_packets <> 1) "A non mutual inductive is expected";
+  let ob = mb.mind_packets.(i) in
+  let check_nconstr n =
+    error (Array.length ob.mind_consnames <> n)
+      ("an inductive type with "^(string_of_int n)^" constructors is expected")
+  in
+  let check_name pos s =
+    error (ob.mind_consnames.(pos) <> Id.of_string s)
+      ("the "^(string_of_int (pos + 1))^
+       "th constructor does not have the expected name") in (* FIXME: stupid message *)
+  let check_type pos t =
+    error (not (Constr.equal t ob.mind_user_lc.(pos)))
+      ("the "^(string_of_int (pos + 1))^
+       "th constructor does not have the expected type") in (* FIXME: stupid message *)
+  let check_type_cte pos = check_type pos (Constr.mkRel 1) in
+  match r with
+  | CPrimitives.PIT_bool ->
+    check_nconstr 2;
+    check_name 0 "true";
+    check_type_cte 0;
+    check_name 1 "false";
+    check_type_cte 1
+  | CPrimitives.PIT_carry ->
+    check_nconstr 2;
+    let test_type pos =
+      let c = ob.mind_user_lc.(pos) in
+      let s = "the "^(string_of_int (pos + 1))^
+              "th constructor as not the expected type" in
+      error (not (Constr.isProd c)) s;
+      let (_,d,cd) = Constr.destProd c in
+      error (not (Constr.is_Type d)) s;
+      error
+        (not (Constr.equal
+                (mkProd (Anonymous,mkRel 1, mkApp (mkRel 3,[|mkRel 2|])))
+                cd))
+        s in
+    check_name 0 "C0";
+    test_type 0;
+    check_name 1 "C1";
+    test_type 1;
+  | CPrimitives.PIT_pair ->
+    check_nconstr 1;
+    check_name 0 "pair";
+    let c = ob.mind_user_lc.(0) in
+    let s =  "the "^(string_of_int 1)^
+             "th constructor as not the expected type" in
+    begin match Term.decompose_prod c with
+      | ([_,b;_,a;_,_B;_,_A], codom) ->
+        error (not (is_Type _A)) s;
+        error (not (is_Type _B)) s;
+        error (not (Constr.equal a (mkRel 2))) s;
+        error (not (Constr.equal b (mkRel 2))) s;
+        error (not (Constr.equal codom (mkApp (mkRel 5,[|mkRel 4; mkRel 3|])))) s
+      | _ -> error true s
+    end
+  | CPrimitives.PIT_cmp ->
+    check_nconstr 3;
+    check_name 0 "Eq";
+    check_type_cte 0;
+    check_name 1 "Lt";
+    check_type_cte 1;
+    check_name 2 "Gt";
+    check_type_cte 2
+  | CPrimitives.PIT_eq ->
+    Format.eprintf "Warning : check_register_ind not implemented for eq@."
+
+let register_inductive i pi senv =
+  check_register_ind i pi senv.env;
+  let action = (Retroknowledge.Retro_ind(pi),Constr.mkInd i) in (* FIXME *)
+  { senv with
+    env = Environ.add_retroknowledge senv.env action;
+    local_retroknowledge = action::senv.local_retroknowledge
+  }
 
 let add_constraints c =
   add_constraints

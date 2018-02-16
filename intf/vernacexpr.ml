@@ -274,8 +274,10 @@ type extend_name =
 
 (* This type allows registering the inlining of constants in native compiler.
    It will be extended with primitive inductive types and operators *)
-type register_kind = 
+type register_kind =
   | RegisterInline
+  | RegisterPrimitive of constr_expr * CPrimitives.op_or_type
+  | RegisterInductive of CPrimitives.prim_ind
 
 type bullet =
     | Dash of int

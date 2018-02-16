@@ -180,3 +180,33 @@ let do_assumptions kind nl l =
       in
       subst'@subst, status' && status, next_uctx uctx)
     ([], true, uctx) l)
+
+let declare_register id (t,ctx) o_t imps =
+  let kn =
+    declare_constant id (PrimitiveEntry((t,ctx),o_t),IsPrimitive) in
+  maybe_declare_manual_implicits false (ConstRef kn) imps;
+  register_message id
+
+let do_register id r =
+  match r with
+  | RegisterInline ->
+    begin match Constrintern.global_reference id.CAst.v with
+    | ConstRef c -> Global.register_inline c
+    | _ -> CErrors.user_err (Pp.str "Register Inline: expecting a constant")
+    end
+  | RegisterPrimitive(t,op) ->
+     if Dumpglob.dump () then Dumpglob.dump_definition id false "ax";
+     let env = Global.env () in
+     let ienv = empty_internalization_env in
+     let evd, (t,imps) = interp_assumption (Evd.from_env env) env ienv [] t in
+     let evd = Evd.nf_constraints evd in
+     let t = EConstr.to_constr evd t in
+     let uvars = Univops.universes_of_constr env t in
+     let evd = Evd.restrict_universe_context evd uvars in
+     let uctx = Evd.check_univ_decl ~poly:false evd Univdecls.default_univ_decl in
+     declare_register id.CAst.v (t, uctx) op imps
+  | RegisterInductive pind ->
+    begin match Constrintern.global_reference id.CAst.v with
+    | IndRef ind -> Global.register_inductive ind pind
+    | _ -> CErrors.user_err (Pp.str "Register Inductive: expecting an inductive type")
+    end

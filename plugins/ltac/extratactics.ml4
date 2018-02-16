@@ -607,23 +607,6 @@ VERNAC COMMAND EXTEND ImplicitTactic CLASSIFIED AS SIDEFF
 | [ "Clear" "Implicit" "Tactic" ] -> [ clear_implicit_tactic () ]
 END
 
-
-
-
-(**********************************************************************)
-(*spiwack : Vernac commands for retroknowledge                        *)
-
-VERNAC COMMAND EXTEND RetroknowledgeRegister CLASSIFIED AS SIDEFF
- | [ "Register" constr(c) "as" retroknowledge_field(f) "by" constr(b)] ->
-           [ let tc,_ctx = Constrintern.interp_constr (Global.env ()) Evd.empty c in
-             let tb,_ctx(*FIXME*) = Constrintern.interp_constr (Global.env ()) Evd.empty b in
-             let tc = EConstr.to_constr Evd.empty tc in
-             let tb = EConstr.to_constr Evd.empty tb in
-             Global.register f tc tb ]
-END
-
-
-
 (**********************************************************************)
 (* sozeau: abs/gen for induction on instantiated dependent inductives, using "Ford" induction as
   defined by Conor McBride *)

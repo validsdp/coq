@@ -107,7 +107,7 @@ let empty_env = {
     env_universes = UGraph.initial_universes;
     env_engagement = PredicativeSet };
   env_typing_flags = Declareops.safe_flags Conv_oracle.empty;
-  retroknowledge = Retroknowledge.initial_retroknowledge;
+  retroknowledge = Retroknowledge.empty;
   indirect_pterms = Opaqueproof.empty_opaquetab }
 
 
