@@ -10,13 +10,13 @@ Context
 Vars
 Term
 Mod_subst
+Vmvalues
 Cbytecodes
 Copcodes
 Cemitcodes
 Opaqueproof
 Declarations
 Entries
-Vmvalues
 Nativevalues
 CPrimitives
 Declareops

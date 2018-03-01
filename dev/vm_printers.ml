@@ -1,7 +1,6 @@
 open Format
 open Term
 open Names
-open Cbytecodes
 open Cemitcodes
 open Vmvalues
 

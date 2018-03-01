@@ -14,6 +14,7 @@
 
 open Names
 open Term
+open Vmvalues
 open Cbytecodes
 open Copcodes
 open Mod_subst
