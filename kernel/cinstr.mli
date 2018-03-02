@@ -34,10 +34,11 @@ and lambda =
   | Lfix          of (int array * int) * fix_decl
   | Lcofix        of int * fix_decl
   | Lmakeblock    of int * lambda array
-  | Lval          of structured_constant
+  | Lval          of structured_values
   | Lsort         of Sorts.t
   | Lind          of pinductive
   | Lproj         of int * Constant.t * lambda
+  | Lint          of int
   | Luint         of uint
 
 and lam_branches =

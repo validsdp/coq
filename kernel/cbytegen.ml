@@ -477,7 +477,9 @@ let rec compile_lam env reloc lam sz cont =
   match lam with
   | Lrel(_, i) -> pos_rel i reloc sz :: cont
 
-  | Lval v -> compile_structured_constant reloc v sz cont
+  | Lint i -> compile_structured_constant reloc (Const_b0 i) sz cont
+
+  | Lval v -> compile_structured_constant reloc (Const_val v) sz cont
 
   | Lproj (n,kn,arg) ->
      compile_lam env reloc arg sz (Kproj (n,kn) :: cont)
