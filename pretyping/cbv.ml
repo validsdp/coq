@@ -52,7 +52,6 @@ type cbv_value =
   | FIXP of fixpoint * cbv_value subs * cbv_value array
   | COFIXP of cofixpoint * cbv_value subs * cbv_value array
   | CONSTR of constructor Univ.puniverses * cbv_value array
-  | INT of Uint63.t
   | PRIMITIVE of CPrimitives.t * constr * cbv_value array
 
 (* type of terms with a hole. This hole can appear only under App or Case.
@@ -96,7 +95,6 @@ let rec shift_value n = function
       COFIXP (cofix,subs_shft (n,s), Array.map (shift_value n) args)
   | CONSTR (c,args) ->
       CONSTR (c, Array.map (shift_value n) args)
-  | INT _ as v -> v
   | PRIMITIVE(op,c,args) ->
       PRIMITIVE(op,c,Array.map (shift_value n) args)
 
@@ -166,7 +164,7 @@ let strip_appl head stack =
     | COFIXP (cofix,env,app) -> (COFIXP(cofix,env,[||]), stack_app app stack)
     | CONSTR (c,app) -> (CONSTR(c,[||]), stack_app app stack)
     | PRIMITIVE(op,c,app) -> (PRIMITIVE(op,c,[||]), stack_app app stack)
-    | VAL _ | STACK _ | CBN _ | LAM _ | INT _ -> (head, stack)
+    | VAL _ | STACK _ | CBN _ | LAM _ -> (head, stack)
 
 
 (* Tests if fixpoint reduction is possible. *)
@@ -202,7 +200,10 @@ module VNativeEntries =
 
     let get_int e =
       match e with
-      | INT i -> i
+      | VAL(0, ci) ->
+          (match kind ci with
+          | Int i -> i
+          | _ -> raise Not_found)
       | _ -> raise Not_found
 
     let dummy = VAL (0,mkRel 0)
@@ -332,7 +333,7 @@ module VNativeEntries =
 
     let mkInt env i =
       check_int env;
-      INT i
+      VAL(0, mkInt i)
 
     let mkBool env b =
       check_bool env;
@@ -411,7 +412,6 @@ and reify_value = function (* reduction under binders *)
     mkApp (apply_env env cofix, Array.map reify_value args)
   | CONSTR (c,args) ->
       mkApp(mkConstructU c, Array.map reify_value args)
-  | INT t -> mkInt t
   | PRIMITIVE(op,c,args) ->
       mkApp(c, Array.map reify_value args)
 
@@ -429,7 +429,7 @@ and apply_env env t =
 
 (* The main recursive functions
  *
- * Go under applications and cases/projections (pushed in the stack), 
+ * Go under applications and cases/projections (pushed in the stack),
  * expand head constants or substitued de Bruijn, and try to a make a
  * constructor, a lambda or a fixp appear in the head. If not, it is a value
  * and is completely computed here. The head redexes are NOT reduced:
@@ -448,17 +448,17 @@ let rec norm_head info env t stack =
       norm_head info env head (stack_app nargs stack)
   | Case (ci,p,c,v) -> norm_head info env c (CASE(p,v,ci,env,stack))
   | Cast (ct,_,_) -> norm_head info env ct stack
-  
-  | Proj (p, c) -> 
+
+  | Proj (p, c) ->
     let p' =
-      if red_set (info_flags info.infos) (fCONST (Projection.constant p)) 
-      	&& red_set (info_flags info.infos) fBETA 
+      if red_set (info_flags info.infos) (fCONST (Projection.constant p))
+        && red_set (info_flags info.infos) fBETA
       then Projection.unfold p
       else p
-    in 
+    in
     let pinfo = Environ.lookup_projection p (info_env info.infos) in
       norm_head info env c (PROJ (p', pinfo, stack))
-	
+
   (* constants, axioms
    * the first pattern is CRUCIAL, n=0 happens very often:
    * when reducing closed terms, n is always 0 *)
@@ -658,7 +658,6 @@ and cbv_norm_value info = function (* reduction under binders *)
          Array.map (cbv_norm_value info) args)
   | CONSTR (c,args) ->
       mkApp(mkConstructU c, Array.map (cbv_norm_value info) args)
-  | INT i -> mkInt i
   | PRIMITIVE(op,c,args) ->
       mkApp(c,Array.map (cbv_norm_value info) args)
 
