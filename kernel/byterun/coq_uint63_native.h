@@ -15,9 +15,9 @@
 #define uint63_addcarry(x,y) ((value)((uint64_t) (x) + (uint64_t) (y) + 1))
 #define uint63_sub(x,y) ((value)((uint64_t) (x) - (uint64_t) (y) + 1))
 #define uint63_subcarry(x,y) ((value)((uint64_t) (x) - (uint64_t) (y) - 1))
-#define uint63_mul(x,y) (Val_long(Long_val(x) * Long_val(y)))
-#define uint63_div(x,y) (Val_long(Long_val(x) / Long_val(y)))
-#define uint63_mod(x,y) (Val_long(Long_val(x) % Long_val(y)))
+#define uint63_mul(x,y) (Val_long(uint63_of_value(x) * uint63_of_value(y)))
+#define uint63_div(x,y) (Val_long(uint63_of_value(x) / uint63_of_value(y)))
+#define uint63_mod(x,y) (Val_long(uint63_of_value(x) % uint63_of_value(y)))
 
 #define uint63_lxor(x,y) ((value)(((uint64_t)(x) ^ (uint64_t)(y)) | 1))
 #define uint63_lor(x,y) ((value)((uint64_t)(x) | (uint64_t)(y)))
