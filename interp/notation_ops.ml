@@ -91,10 +91,12 @@ let rec eq_notation_constr (vars1,vars2 as vars) t1 t2 = match t1, t2 with
 | NProj (p1, c1), NProj (p2, c2) ->
   Projection.equal p1 p2 && eq_notation_constr vars c1 c2
 | NInt i1, NInt i2 ->
-   Uint63.equal i1 i2
+  Uint63.equal i1 i2
+| NFloat f1, NFloat f2 ->
+  Float64.equal f1 f2
 | (NRef _ | NVar _ | NApp _ | NHole _ | NList _ | NLambda _ | NProd _
   | NBinderList _ | NLetIn _ | NCases _ | NLetTuple _ | NIf _
-  | NRec _ | NSort _ | NCast _ | NProj _ | NInt _), _ -> false
+  | NRec _ | NSort _ | NCast _ | NProj _ | NInt _ | NFloat _), _ -> false
 
 (**********************************************************************)
 (* Re-interpret a notation as a glob_constr, taking care of binders   *)
@@ -223,6 +225,7 @@ let glob_constr_of_notation_constr_with_binders ?loc g f e nc =
   | NRef x -> GRef (x,None)
   | NProj (p,c) -> GProj (p, f e c)
   | NInt i -> GInt i
+  | NFloat f -> GFloat f
 
 let glob_constr_of_notation_constr ?loc x =
   let rec aux () x =
@@ -401,7 +404,7 @@ let notation_constr_and_vars_of_glob_constr recvars a =
 	(* Fall on the second part of the recursive pattern w/o having
 	   found the first part *)
         let loc = t.CAst.loc in
-	user_err ?loc 
+        user_err ?loc
 	(str "Cannot find where the recursive pattern starts.")
       | _ -> aux' c
       end
@@ -439,6 +442,7 @@ let notation_constr_and_vars_of_glob_constr recvars a =
   | GCast (c,k) -> NCast (aux c,Miscops.map_cast_type aux k)
   | GSort s -> NSort s
   | GInt i -> NInt i
+  | GFloat f -> NFloat f
   | GHole (w,naming,arg) ->
      if arg != None then has_ltac := true;
      NHole (w, naming, arg)
@@ -625,6 +629,7 @@ let rec subst_notation_constr subst bound raw =
 
   | NSort _ -> raw
   | NInt _ -> raw
+  | NFloat _ -> raw
 
   | NHole (knd, naming, solve) ->
     let nknd = match knd with
@@ -1198,6 +1203,7 @@ let rec match_ inner u alp metas sigma a1 a2 =
   | GSort (GType _), NSort (GType _) when not u -> sigma
   | GSort s1, NSort s2 when Miscops.glob_sort_eq s1 s2 -> sigma
   | GInt i1, NInt i2 when Uint63.equal i1 i2 -> sigma
+  | GFloat f1, NFloat f2 when Float64.equal f1 f2 -> sigma
   | GPatVar _, NHole _ -> (*Don't hide Metas, they bind in ltac*) raise No_match
   | a, NHole _ -> sigma
 
@@ -1228,7 +1234,7 @@ let rec match_ inner u alp metas sigma a1 a2 =
 
   | (GRef _ | GVar _ | GEvar _ | GPatVar _ | GApp _ | GLambda _ | GProd _
      | GLetIn _ | GCases _ | GLetTuple _ | GIf _ | GRec _ | GSort _ | GHole _
-     | GCast _ | GProj _ | GInt _), _ -> raise No_match
+     | GCast _ | GProj _ | GInt _ | GFloat _), _ -> raise No_match
 
 and match_in u = match_ true u
 

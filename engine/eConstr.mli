@@ -119,6 +119,7 @@ val mkFix : (t, t) pfixpoint -> t
 val mkCoFix : (t, t) pcofixpoint -> t
 val mkArrow : t -> t -> t
 val mkInt : Uint63.t -> t
+val mkFloat : Float64.t -> t
 
 val applist : t * t list -> t
 val applistc : t -> t list -> t

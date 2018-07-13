@@ -39,7 +39,7 @@ let rec solve_trivial_holes pat_as_term e =
   | GApp(fp,argsp),GApp(fe,argse) when glob_constr_eq fp fe ->
        DAst.make (GApp((solve_trivial_holes fp fe),List.map2 solve_trivial_holes argsp argse))
   | _,_ -> pat_as_term
-                                              
+
 (*
    compose_glob_context [(bt_1,n_1,t_1);......] rt returns
    b_1(n_1,t_1,.....,bn(n_k,t_k,rt)) where the b_i's are the
@@ -482,7 +482,7 @@ let rec build_entry_lc env funnames avoid rt : glob_constr build_entry_return =
   observe (str " Entering : " ++ Printer.pr_glob_constr_env env rt);
   let open CAst in
   match DAst.get rt with
-    | GRef _ | GVar _ | GEvar _ | GPatVar _ | GSort _  | GHole _ | GInt _ ->
+    | GRef _ | GVar _ | GEvar _ | GPatVar _ | GSort _  | GHole _ | GInt _ | GFloat _ ->
 	(* do nothing (except changing type of course) *)
 	mk_result [] rt avoid
     | GApp(_,_) ->
@@ -498,15 +498,15 @@ let rec build_entry_lc env funnames avoid rt : glob_constr build_entry_return =
 	in
 	begin
 	  match DAst.get f with
-	    | GLambda _  -> 
-		let rec aux t l = 
-		  match l with 
+            | GLambda _  ->
+                let rec aux t l =
+                  match l with
 		    | [] -> t
 		    | u::l -> DAst.make @@
-			match DAst.get t with 
-			  | GLambda(na,_,nat,b) -> 
+                        match DAst.get t with
+                          | GLambda(na,_,nat,b) ->
 			      GLetIn(na,u,None,aux b l)
-			  | _ -> 
+                          | _ ->
 			      GApp(t,l)
 		in
 		build_entry_lc env funnames avoid (aux f args)
@@ -591,9 +591,10 @@ let rec build_entry_lc env funnames avoid rt : glob_constr build_entry_return =
 		*)
 		build_entry_lc env funnames avoid (mkGApp(b,args))
 	    | GRec _ -> user_err Pp.(str "Not handled GRec")
-            | GProj _ -> user_err Pp.(str "Funind does not support primitive projections")
+      | GProj _ -> user_err Pp.(str "Funind does not support primitive projections")
 	    | GProd _ -> user_err Pp.(str "Cannot apply a type")
-            | GInt _ -> user_err Pp.(str "Cannot apply an integer")
+      | GInt _ -> user_err Pp.(str "Cannot apply an integer")
+      | GFloat _ -> user_err Pp.(str "Cannot apply a float")
 	end (* end of the application treatement *)
 
     | GLambda(n,_,t,b) ->
@@ -824,8 +825,8 @@ and build_entry_lc_from_case_term env types funname make_discr patterns_to_preve
 		 let typ_as_constr = EConstr.of_constr typ_as_constr in
 		 let typ = Detyping.detype Detyping.Now false Id.Set.empty new_env (Evd.from_env env) typ_as_constr in
 		 let pat_as_term = pattern_to_term pat in
-                 (* removing trivial holes *) 
-                 let pat_as_term = solve_trivial_holes pat_as_term e in 
+                 (* removing trivial holes *)
+                 let pat_as_term = solve_trivial_holes pat_as_term e in
                   (* observe (str "those_pattern_preconds" ++ spc () ++ *)
                   (*            str "pat" ++ spc () ++ pr_glob_constr pat_as_term ++ spc ()++ *)
                   (*            str "e" ++ spc () ++ pr_glob_constr e ++spc ()++ *)
@@ -893,12 +894,12 @@ let is_gvar c = match DAst.get c with
 | GVar id -> true
 | _ -> false
 
-let same_raw_term rt1 rt2 = 
-  match DAst.get rt1, DAst.get rt2 with 
+let same_raw_term rt1 rt2 =
+  match DAst.get rt1, DAst.get rt2 with
     | GRef(r1,_), GRef (r2,_) -> Globnames.eq_gr r1 r2
     | GHole _, GHole _ -> true
     | _ -> false
-let decompose_raw_eq lhs rhs = 
+let decompose_raw_eq lhs rhs =
   let _, env = Pfedit.get_current_context () in
   let rec decompose_raw_eq lhs rhs acc =
     observe (str "decomposing eq for " ++ pr_glob_constr_env env lhs ++ str " " ++ pr_glob_constr_env env rhs);
@@ -1085,13 +1086,13 @@ let rec rebuild_cons env nb_args relname args crossed_types depth rt =
 		when is_gr eq_as_ref (Lazy.force Coqlib.coq_eq_ref) && n == Anonymous
 		  ->
 	      begin
-		try 
-		  let l = decompose_raw_eq rt1 rt2 in 
-		  if List.length l > 1 
-		  then 
+                try
+                  let l = decompose_raw_eq rt1 rt2 in
+                  if List.length l > 1
+                  then
 		    let new_rt =
-		      List.fold_left 
-			(fun acc (lhs,rhs) -> 
+                      List.fold_left
+                        (fun acc (lhs,rhs) ->
 			  mkGProd(Anonymous,
 				  mkGApp(mkGRef(Lazy.force Coqlib.coq_eq_ref),[mkGHole ();lhs;rhs]),acc)
 			)
@@ -1100,7 +1101,7 @@ let rec rebuild_cons env nb_args relname args crossed_types depth rt =
 		    in
 		    rebuild_cons env nb_args relname args crossed_types depth new_rt
 		  else raise Continue
-	      with Continue -> 
+              with Continue ->
                 observe (str "computing new type for prod : " ++ pr_glob_constr_env env rt);
 		let t',ctx = Pretyping.understand env (Evd.from_env env) t in
                 let new_env = EConstr.push_rel (LocalAssum (n,t')) env in
@@ -1228,7 +1229,7 @@ let rebuild_cons env nb_args relname args crossed_types rt =
    TODO: Find a valid way to deal with implicit arguments here!
 *)
 let rec compute_cst_params relnames params gt = DAst.with_val (function
-  | GRef _ | GVar _ | GEvar _ | GPatVar _ | GInt _ -> params
+  | GRef _ | GVar _ | GEvar _ | GPatVar _ | GInt _ | GFloat _ -> params
   | GApp(f,args) ->
     begin match DAst.get f with
     | GVar relname' when Id.Set.mem relname' relnames ->

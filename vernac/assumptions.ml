@@ -167,7 +167,7 @@ let fold_constr_with_full_binders g f n acc c =
   let open Context.Rel.Declaration in
   match Constr.kind c with
   | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _
-    | Int _ -> acc
+    | Int _ | Float _ -> acc
   | Cast (c,_, t) -> f n (f n acc c) t
   | Prod (na,t,c) -> f (g (LocalAssum (na,t)) n) (f n acc t) c
   | Lambda (na,t,c) -> f (g (LocalAssum (na,t)) n) (f n acc t) c
@@ -223,7 +223,7 @@ and traverse_object ?inhabits (curr, data, ax2ty) body obj =
         let ax2ty =
           if Option.is_empty inhabits then ax2ty else
           let ty = Option.get inhabits in
-          try let l = Refmap_env.find obj ax2ty in Refmap_env.add obj (ty::l) ax2ty 
+          try let l = Refmap_env.find obj ax2ty in Refmap_env.add obj (ty::l) ax2ty
           with Not_found -> Refmap_env.add obj [ty] ax2ty in
         data, ax2ty
     | Some body ->

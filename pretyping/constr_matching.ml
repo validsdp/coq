@@ -207,11 +207,11 @@ let merge_binding sigma allow_bound_rels ctx n cT subst =
       else raise PatternMatchingFailure
   in
   constrain sigma n c subst
-      
+
 let matches_core env sigma allow_bound_rels
     (binding_vars,pat) c =
   let open EConstr in
-  let convref ref c = 
+  let convref ref c =
     match ref, EConstr.kind sigma c with
     | VarRef id, Var id' -> Names.Id.equal id id'
     | ConstRef c, Const (c',_) -> Constant.equal c c'
@@ -279,29 +279,29 @@ let matches_core env sigma allow_bound_rels
 		     sorec ctx env subst p term
 	       with Retyping.RetypeError _ -> raise PatternMatchingFailure)
 	    | _ -> raise PatternMatchingFailure)
-	   
+
       | PApp (c1,arg1), App (c2,arg2) ->
 	(match c1, EConstr.kind sigma c2 with
 	| PRef (ConstRef r), Proj (pr,c) when not (Constant.equal r (Projection.constant pr))
 	    || Projection.unfolded pr ->
 	  raise PatternMatchingFailure
 	| PProj (pr1,c1), Proj (pr,c) ->
-	  if Projection.equal pr1 pr then 
+          if Projection.equal pr1 pr then
 	    try Array.fold_left2 (sorec ctx env) (sorec ctx env subst c1 c) arg1 arg2
 	    with Invalid_argument _ -> raise PatternMatchingFailure
 	  else raise PatternMatchingFailure
 	| _, Proj (pr,c) when not (Projection.unfolded pr) ->
 	  (try let term = Retyping.expand_projection env sigma pr c (Array.to_list arg2) in
 		 sorec ctx env subst p term
-	   with Retyping.RetypeError _ -> raise PatternMatchingFailure)	    
+           with Retyping.RetypeError _ -> raise PatternMatchingFailure)
 	| _, _ ->
           try Array.fold_left2 (sorec ctx env) (sorec ctx env subst c1 c2) arg1 arg2
           with Invalid_argument _ -> raise PatternMatchingFailure)
-	  
-      | PApp (PRef (ConstRef c1), _), Proj (pr, c2) 
-	when Projection.unfolded pr || not (Constant.equal c1 (Projection.constant pr)) -> 
+
+      | PApp (PRef (ConstRef c1), _), Proj (pr, c2)
+        when Projection.unfolded pr || not (Constant.equal c1 (Projection.constant pr)) ->
 	raise PatternMatchingFailure
-	
+
       | PApp (c, args), Proj (pr, c2) ->
 	(try let term = Retyping.expand_projection env sigma pr c2 [] in
 	       sorec ctx env subst p term
@@ -369,9 +369,10 @@ let matches_core env sigma allow_bound_rels
       | PEvar (c1,args1), Evar (c2,args2) when Evar.equal c1 c2 ->
          Array.fold_left2 (sorec ctx env) subst args1 args2
       | PInt i1, Int i2 when Uint63.equal i1 i2 -> subst
+      | PFloat f1, Float f2 when Float64.equal f1 f2 -> subst
       | (PRef _ | PVar _ | PRel _ | PApp _ | PProj _ | PLambda _
          | PProd _ | PLetIn _ | PSort _ | PIf _ | PCase _
-         | PFix _ | PCoFix _| PEvar _ | PInt _), _ -> raise PatternMatchingFailure
+         | PFix _ | PCoFix _| PEvar _ | PInt _ | PFloat _), _ -> raise PatternMatchingFailure
 
   in
   sorec [] env (Id.Map.empty, Id.Map.empty) pat c
@@ -487,7 +488,7 @@ let sub_match ?(closed=true) env sigma pat c =
       aux env term mk_ctx next
     with Retyping.RetypeError _ -> next ()
     end
-  | Construct _| Ind _|Evar _|Const _ | Rel _|Meta _|Var _|Sort _ | Int _ ->
+  | Construct _|Ind _|Evar _|Const _|Rel _|Meta _|Var _|Sort _|Int _|Float _ ->
     next ()
   in
   here next

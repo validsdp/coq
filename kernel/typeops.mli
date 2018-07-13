@@ -113,3 +113,6 @@ val check_primitive_type : env -> CPrimitives.op_or_type -> types -> unit
 
 val type_of_int : env -> types
 val judge_of_int : env -> Uint63.t -> unsafe_judgment
+
+val type_of_float : env -> types
+val judge_of_float : env -> Float64.t -> unsafe_judgment

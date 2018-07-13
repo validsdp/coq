@@ -196,6 +196,8 @@ module VNativeEntries =
     type elem = cbv_value
     type args = cbv_value array
 
+    exception VNativeDestrFail
+
     let get = Array.get
 
     let get_int e =
@@ -203,8 +205,16 @@ module VNativeEntries =
       | VAL(_, ci) ->
           (match kind ci with
           | Int i -> i
-          | _ -> raise Not_found)
-      | _ -> raise Not_found
+          | _ -> raise VNativeDestrFail)
+      | _ -> raise VNativeDestrFail
+
+    let get_float e =
+      match e with
+      | VAL(_, cf) ->
+        (match kind cf with
+        | Float f -> f
+        | _ -> raise VNativeDestrFail)
+      | _ -> raise VNativeDestrFail
 
     let dummy = VAL (0,mkRel 0)
 
@@ -218,6 +228,16 @@ module VNativeEntries =
           defined_int := true;
           vint := VAL(0,c)
       | None -> defined_int := false
+
+    let defined_float = ref false
+    let vfloat = ref dummy
+
+    let init_float retro =
+      match retro.Retroknowledge.retro_float64 with
+      | Some (cte, c) ->
+          defined_float := true;
+          vfloat := VAL(0,c)
+      | None -> defined_float := false
 
     let defined_bool = ref false
     let vtrue = ref dummy
@@ -264,6 +284,7 @@ module VNativeEntries =
     let vEq = ref dummy
     let vLt = ref dummy
     let vGt = ref dummy
+    let vcmp = ref dummy
 
     let init_cmp retro =
       match retro.Retroknowledge.retro_cmp with
@@ -271,8 +292,22 @@ module VNativeEntries =
           defined_cmp := true;
           vEq := CONSTR(cEq,[||]);
           vLt := CONSTR(cLt,[||]);
-          vGt := CONSTR(cGt,[||])
+          vGt := CONSTR(cGt,[||]);
+          let ((cCmp,_), _) = cEq in
+          vcmp := VAL(0, (mkInd cCmp))
       | None -> defined_cmp := false
+
+    let defined_option = ref false
+    let cSome = ref dummy_construct
+    let cNone = ref dummy_construct
+
+    let init_option retro =
+      match retro.Retroknowledge.retro_option with
+      | Some (cSome', cNone') ->
+          defined_option := true;
+          cSome := cSome';
+          cNone := cNone'
+      | None -> defined_option := false
 
     let defined_refl = ref false
 
@@ -288,10 +323,12 @@ module VNativeEntries =
     let init env =
       current_retro := Environ.retroknowledge env;
       init_int !current_retro;
+      init_float !current_retro;
       init_bool !current_retro;
       init_carry !current_retro;
       init_pair !current_retro;
       init_cmp !current_retro;
+      init_option !current_retro;
       init_refl !current_retro
 
 
@@ -301,6 +338,10 @@ module VNativeEntries =
     let check_int env =
       check_env env;
       assert (!defined_int)
+
+    let check_float env =
+      check_env env;
+      assert (!defined_float)
 
     let check_bool env =
       check_env env;
@@ -317,6 +358,10 @@ module VNativeEntries =
     let check_cmp env =
       check_env env;
       assert (!defined_cmp)
+
+    let check_option env =
+      check_env env;
+      assert (!defined_option)
 
     let check_refl env =
       check_env env;
@@ -335,6 +380,10 @@ module VNativeEntries =
       check_int env;
       VAL(0, mkInt i)
 
+    let mkFloat env f =
+      check_float env;
+      VAL(0, mkFloat f)
+
     let mkBool env b =
       check_bool env;
       if b then !vtrue else !vfalse
@@ -347,6 +396,11 @@ module VNativeEntries =
       check_pair env;
       CONSTR(!cPair, [|!vint;!vint;e1;e2|])
 
+    let mkFloatIntPair env f i =
+      check_pair env;
+      check_float env;
+      CONSTR(!cPair, [|!vfloat;!vint;f;i|])
+
     let mkLt env =
       check_cmp env;
       !vLt
@@ -358,6 +412,16 @@ module VNativeEntries =
     let mkGt env =
       check_cmp env;
       !vGt
+
+    let mkSomeCmp env v =
+      check_option env;
+      check_cmp env;
+      CONSTR(!cSome, [|!vcmp; v|])
+
+    let mkNoneCmp env =
+      check_option env;
+      check_cmp env;
+      CONSTR(!cNone, [|!vcmp|])
 
     let mkClos id t body s =
       LAM(1,[id,t],body, Esubst.subs_cons (s,Esubst.subs_id 0))
@@ -504,7 +568,7 @@ let rec norm_head info env t stack =
   | Construct c -> (CONSTR(c, [||]), stack)
 
   (* neutral cases *)
-  | (Sort _ | Meta _ | Ind _ | Int _) -> (VAL(0, t), stack)
+  | (Sort _ | Meta _ | Ind _ | Int _ | Float _) -> (VAL(0, t), stack)
   | Prod _ -> (CBN(t,env), stack)
 
 and norm_head_ref k info env stack normt t =

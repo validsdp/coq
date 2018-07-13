@@ -235,6 +235,7 @@ GEXTEND Gram
       | "ind_carry" -> CPrimitives.PIT_carry
       | "ind_pair" -> CPrimitives.PIT_pair
       | "ind_cmp" -> CPrimitives.PIT_cmp
+      | "ind_option" -> CPrimitives.PIT_option
       | "ind_eq"  -> CPrimitives.PIT_eq] ]
   ;
 
@@ -244,7 +245,8 @@ GEXTEND Gram
   ;
 
   register_type_token:
-    [ [ "int63_type" -> CPrimitives.PT_int63 ] ]
+    [ [ "int63_type" -> CPrimitives.PT_int63
+      | "float64_type" -> CPrimitives.PT_float64 ] ]
   ;
 
   register_prim_token:
@@ -274,7 +276,19 @@ GEXTEND Gram
       | "int63_lt" -> CPrimitives.Operation CPrimitives.Int63lt
       | "int63_le" -> CPrimitives.Operation CPrimitives.Int63le
       | "int63_compare" -> CPrimitives.Operation CPrimitives.Int63compare
-      | "int63_eqb_correct" -> CPrimitives.Operation CPrimitives.Int63eqb_correct] ]
+      | "int63_eqb_correct" -> CPrimitives.Operation CPrimitives.Int63eqb_correct
+      | "float64_opp" -> CPrimitives.Operation CPrimitives.Float64opp
+      | "float64_abs" -> CPrimitives.Operation CPrimitives.Float64abs
+      | "float64_compare" -> CPrimitives.Operation CPrimitives.Float64compare
+      | "float64_add" -> CPrimitives.Operation CPrimitives.Float64add
+      | "float64_sub" -> CPrimitives.Operation CPrimitives.Float64sub
+      | "float64_mul" -> CPrimitives.Operation CPrimitives.Float64mul
+      | "float64_div" -> CPrimitives.Operation CPrimitives.Float64div
+      | "float64_sqrt" -> CPrimitives.Operation CPrimitives.Float64sqrt
+      | "float64_of_int63" -> CPrimitives.Operation CPrimitives.Float64ofInt63
+      | "float64_to_int63" -> CPrimitives.Operation CPrimitives.Float64toInt63
+      | "float64_frshiftexp" -> CPrimitives.Operation CPrimitives.Float64frshiftexp
+      | "float64_ldshiftexp" -> CPrimitives.Operation CPrimitives.Float64ldshiftexp ] ]
     ;
   inline:
     [ [ IDENT "Inline"; "("; i = INT; ")" -> InlineAt (int_of_string i)
@@ -638,7 +652,7 @@ GEXTEND Gram
       | "Type"; "*" -> SsFwdClose SsType ]]
   ;
   ssexpr:
-    [ "35" 
+    [ "35"
       [ "-"; e = ssexpr -> SsCompl e ]
     | "50"
       [ e1 = ssexpr; "-"; e2 = ssexpr->SsSubstr(e1,e2)
@@ -649,7 +663,7 @@ GEXTEND Gram
           starredidentreflist_to_expr l
       | "("; only_starredidentrefs; l = LIST0 starredidentref; ")"; "*" ->
           SsFwdClose(starredidentreflist_to_expr l)
-      | "("; e = ssexpr; ")"-> e 
+      | "("; e = ssexpr; ")"-> e
       | "("; e = ssexpr; ")"; "*" -> SsFwdClose e ] ]
   ;
 END
@@ -721,7 +735,7 @@ GEXTEND Gram
       | IDENT "Existing"; IDENT "Class"; is = global -> VernacDeclareClass is
 
       (* Arguments *)
-      | IDENT "Arguments"; qid = smart_global; 
+      | IDENT "Arguments"; qid = smart_global;
         args = LIST0 argument_spec_block;
         more_implicits = OPT
           [ ","; impl = LIST1
@@ -744,7 +758,7 @@ GEXTEND Gram
          let more_implicits = Option.default [] more_implicits in
          VernacArguments (qid, args, more_implicits, !slash_position, mods)
 
- 
+
      (* moved there so that camlp5 factors it with the previous rule *)
      | IDENT "Arguments"; IDENT "Scope"; qid = smart_global;
        "["; scl = LIST0 [ "_" -> None | sc = IDENT -> Some sc ]; "]" ->
@@ -765,7 +779,7 @@ GEXTEND Gram
           test_plural_form_types loc "Implicit Types" bl;
            VernacReserve bl
 
-      | IDENT "Generalizable"; 
+      | IDENT "Generalizable";
 	   gen = [IDENT "All"; IDENT "Variables" -> Some []
 	     | IDENT "No"; IDENT "Variables" -> None
 	     | ["Variable" | IDENT "Variables"];
@@ -979,7 +993,7 @@ GEXTEND Gram
       | IDENT "Remove"; table = IDENT; field = IDENT; v= LIST1 option_ref_value
         -> VernacRemoveOption ([table;field], v)
       | IDENT "Remove"; table = IDENT; v = LIST1 option_ref_value ->
-	  VernacRemoveOption ([table], v) ]] 
+          VernacRemoveOption ([table], v) ]]
   ;
   query_command: (* TODO: rapprocher Eval et Check *)
     [ [ IDENT "Eval"; r = red_expr; "in"; c = lconstr; "." ->

@@ -274,7 +274,7 @@ type constraints_addition =
 
 let add_constraints cst senv =
   match cst with
-  | Later fc -> 
+  | Later fc ->
     {senv with future_cst = fc :: senv.future_cst}
   | Now (poly,cst) ->
   { senv with
@@ -298,7 +298,7 @@ let join_safe_environment ?(except=Future.UUIDSet.empty) e =
        else add_constraints (Now (false, Future.join fc)) e)
     {e with future_cst = []} e.future_cst
 
-let is_joined_environment e = List.is_empty e.future_cst 
+let is_joined_environment e = List.is_empty e.future_cst
 
 (** {6 Various checks } *)
 
@@ -427,7 +427,7 @@ let globalize_constant_universes env cb =
              | Some c -> [Now (false, c)])
   | Polymorphic_const _ ->
     [Now (true, Univ.ContextSet.empty)]
-      
+
 let globalize_mind_universes mb =
   match mb.mind_universes with
   | Monomorphic_ind ctx ->
@@ -435,7 +435,7 @@ let globalize_mind_universes mb =
   | Polymorphic_ind _ -> [Now (true, Univ.ContextSet.empty)]
   | Cumulative_ind _ -> [Now (true, Univ.ContextSet.empty)]
 
-let constraints_of_sfb env sfb = 
+let constraints_of_sfb env sfb =
   match sfb with
   | SFBconst cb -> globalize_constant_universes env cb
   | SFBmind mib -> globalize_mind_universes mib
@@ -494,7 +494,7 @@ type global_declaration =
   | ConstantEntry : 'a effect_entry * 'a Entries.constant_entry -> global_declaration
   | GlobalRecipe of Cooking.recipe
 
-type exported_private_constant = 
+type exported_private_constant =
   Constant.t * private_constant_role
 
 let add_constant_aux no_section senv (kn, cb) =
@@ -531,7 +531,7 @@ let add_constant dir l decl senv =
   let kn = Constant.make3 senv.modpath dir l in
   let no_section = DirPath.is_empty dir in
   let senv =
-    let cb = 
+    let cb =
       match decl with
       | ConstantEntry (EffectEntry, ce) ->
         Term_typing.translate_constant (Term_typing.SideEffects senv.revstruct) senv.env kn ce
@@ -994,6 +994,27 @@ let check_register_ind (mind,i) r env =
     check_type_cte 1;
     check_name 2 "Gt";
     check_type_cte 2
+  | CPrimitives.PIT_option ->
+    check_nconstr 2;
+    check_name 0 "Some";
+    let cSome = ob.mind_user_lc.(0) in
+    let s = "the first option constructor (Some) has a wrong type" in
+    begin match Term.decompose_prod cSome with
+      | ([_,v;_,_V], codom) ->
+        error (not (is_Type _V)) s;
+        error (not (Constr.equal v (mkRel 1))) s;
+        error (not (Constr.equal codom (mkApp (mkRel 3, [|mkRel 2|])))) s
+      | _ -> error true s
+    end;
+    check_name 1 "None";
+    let cNone = ob.mind_user_lc.(1) in
+    let s = "the second option constructor (None) has a wrong type" in
+    begin match Term.decompose_prod cNone with
+      | ([_,_V], codom) ->
+        error (not (is_Type _V)) s;
+        error (not (Constr.equal codom (mkApp (mkRel 2, [|mkRel 1|])))) s
+      | _ -> error true s
+    end
   | CPrimitives.PIT_eq ->
     Format.eprintf "Warning : check_register_ind not implemented for eq@."
 

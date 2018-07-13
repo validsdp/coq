@@ -382,9 +382,9 @@ struct
     let open Pp in
       match c with
       | Cst_const (c, u) ->
-	if Univ.Instance.is_empty u then Constant.print c
+              if Univ.Instance.is_empty u then Constant.print c
         else str"(" ++ Constant.print c ++ str ", " ++
-	  Univ.Instance.pr Univ.Level.pr u ++ str")"
+              Univ.Instance.pr Univ.Level.pr u ++ str")"
       | Cst_proj p ->
 	str".(" ++ Constant.print (Projection.constant p) ++ str")"
 
@@ -847,12 +847,19 @@ struct
   type elem = EConstr.t
   type args = EConstr.t array
 
+  exception CNativeDestrFail
+
   let get = Array.get
 
   let get_int e =
     match Constr.kind (EConstr.Unsafe.to_constr (* FIXME *) e) with
     | Int i -> i
-    | _ -> raise Not_found
+    | _ -> raise CNativeDestrFail
+
+  let get_float e =
+    match Constr.kind (EConstr.Unsafe.to_constr e) with
+    | Float f -> f
+    | _ -> raise CNativeDestrFail
 
   let dummy = mkRel 0
   let current_retro = ref Retroknowledge.empty
@@ -865,6 +872,16 @@ struct
       defined_int := true;
       cint := EConstr.of_constr c
     | None -> defined_int := false
+
+  let defined_float = ref false
+  let cfloat = ref dummy
+
+  let init_float retro =
+    match retro.Retroknowledge.retro_float64 with
+    | Some (cte, c) ->
+      defined_float := true;
+      cfloat := EConstr.of_constr c
+    | None -> defined_float := false
 
   let defined_bool = ref false
   let ctrue = ref dummy
@@ -904,6 +921,7 @@ struct
   let cEq = ref dummy
   let cLt = ref dummy
   let cGt = ref dummy
+  let cCmp = ref dummy
 
   let init_cmp retro =
     match retro.Retroknowledge.retro_cmp with
@@ -911,8 +929,23 @@ struct
       defined_cmp := true;
       cEq := mkConstruct (fst cEq');
       cLt := mkConstruct (fst cLt');
-      cGt := mkConstruct (fst cGt')
+      cGt := mkConstruct (fst cGt');
+      let ((cCmp', _), _) = cEq' in
+      cCmp := mkInd cCmp'
     | None -> defined_cmp := false
+
+  let defined_option = ref false
+  let cSome = ref dummy
+  let cNone = ref dummy
+
+  let init_option retro =
+    match retro.Retroknowledge.retro_option with
+    | Some (cSome', cNone') ->
+      defined_option := true;
+      cSome := mkConstruct (fst cSome');
+      cNone := mkConstruct (fst cNone');
+    | None -> defined_option := false
+
 
   let defined_refl = ref false
 
@@ -928,10 +961,12 @@ struct
   let init env =
     current_retro := retroknowledge env;
     init_int !current_retro;
+    init_float !current_retro;
     init_bool !current_retro;
     init_carry !current_retro;
     init_pair !current_retro;
     init_cmp !current_retro;
+    init_option !current_retro;
     init_refl !current_retro
 
   let check_env env =
@@ -940,6 +975,10 @@ struct
   let check_int env =
     check_env env;
     assert (!defined_int)
+
+  let check_float env =
+    check_env env;
+    assert (!defined_float)
 
   let check_bool env =
     check_env env;
@@ -956,6 +995,10 @@ struct
   let check_cmp env =
     check_env env;
     assert (!defined_cmp)
+
+  let check_option env =
+    check_env env;
+    assert (!defined_option)
 
   let check_refl env =
     check_env env;
@@ -974,6 +1017,10 @@ struct
     check_int env;
     mkInt i
 
+  let mkFloat env f =
+    check_float env;
+    mkFloat f
+
   let mkBool env b =
     check_bool env;
     if b then !ctrue else !cfalse
@@ -986,6 +1033,10 @@ struct
     check_pair env;
     mkApp(!cPair, [|!cint;!cint;e1;e2|])
 
+  let mkFloatIntPair env f i =
+    check_pair env;
+    mkApp(!cPair, [|!cfloat;!cint;f;i|])
+
   let mkLt env =
     check_cmp env;
     !cLt
@@ -997,6 +1048,16 @@ struct
   let mkGt env =
     check_cmp env;
     !cGt
+
+  let mkSomeCmp env v =
+    check_option env;
+    check_cmp env;
+    mkApp(!cSome, [|!cCmp; v|])
+
+  let mkNoneCmp env =
+    check_option env;
+    check_cmp env;
+    mkApp(!cNone, [|!cCmp|])
 
   let mkClos id t body s =
     substl (Array.to_list s) (EConstr.of_constr (Constr.mkLambda(id,t,body)))
@@ -1157,7 +1218,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 		   match Stack.strip_n_app curr stack with
 		   | None -> fold ()
 		   | Some (bef,arg,s') ->
-                     whrec Cst_stack.empty
+           whrec Cst_stack.empty
 		       (arg,Stack.Cst(Stack.Cst_proj p,curr,remains,
 				      Stack.append_app [|c|] bef,cst_l)::s'))
 
@@ -1253,7 +1314,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 	|_ -> fold ()
       else fold ()
 
-    | Int i ->
+    | Int _ | Float _ ->
       begin match Stack.strip_app stack with
        | (_, Stack.Primitive(p,kn,rargs,kargs,cst_l')::s) ->
          let more_to_reduce = List.exists (fun k -> CPrimitives.Kwhnf = k) kargs in
@@ -1360,7 +1421,7 @@ let local_whd_state_gen flags sigma =
       else s
 
     | Rel _ | Var _ | Sort _ | Prod _ | LetIn _ | Const _  | Ind _ | Proj _
-      | Int _ -> s
+      | Int _ | Float _ -> s
 
   in
   whrec

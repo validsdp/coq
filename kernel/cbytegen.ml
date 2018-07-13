@@ -509,6 +509,8 @@ let rec compile_lam env reloc lam sz cont =
 
   | Luint i -> compile_structured_constant reloc (Const_uint i) sz cont
 
+  | Lfloat f -> compile_structured_constant reloc (Const_float f) sz cont
+
   | Lval v -> compile_structured_constant reloc (Const_val v) sz cont
 
   | Lproj (n,kn,arg) ->
@@ -667,7 +669,7 @@ let rec compile_lam env reloc lam sz cont =
       let nblock = min nallblock (last_variant_tag + 1) in
       let lbl_blocks = Array.make nblock Label.no in
       let neblock = max 0 (nallblock - last_variant_tag) in
-      let lbl_eblocks = Array.make neblock Label.no in 
+      let lbl_eblocks = Array.make neblock Label.no in
       let branch1, cont = make_branch cont in
       (* Compilation of the return type *)
       let fcode =
@@ -689,7 +691,7 @@ let rec compile_lam env reloc lam sz cont =
       let c = ref cont in
       (* Perform the extra match if needed (too many block constructors) *)
       if neblock <> 0 then begin
-        let lbl_b, code_b = 
+        let lbl_b, code_b =
           label_code (
             Kpush :: Kfield 0 :: Kswitch(lbl_eblocks, [||]) :: !c) in
         lbl_blocks.(last_variant_tag) <- lbl_b;

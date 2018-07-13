@@ -83,6 +83,9 @@ val mkVar : Id.t -> constr
 (** Constructs a machine integer *)
 val mkInt : Uint63.t -> constr
 
+(** Constructs a machine float number *)
+val mkFloat : Float64.t -> constr
+
 (** Constructs an patvar named "?n" *)
 val mkMeta : metavariable -> constr
 
@@ -140,13 +143,13 @@ val mkConstructU : pconstructor -> constr
 val mkConstructUi : pinductive * int -> constr
 
 (** Constructs a destructor of inductive type.
-    
-    [mkCase ci p c ac] stand for match [c] as [x] in [I args] return [p] with [ac] 
+
+    [mkCase ci p c ac] stand for match [c] as [x] in [I args] return [p] with [ac]
     presented as describe in [ci].
 
     [p] stucture is [fun args x -> "return clause"]
 
-    [ac]{^ ith} element is ith constructor case presented as 
+    [ac]{^ ith} element is ith constructor case presented as
     {e lambda construct_args (without params). case_term } *)
 val mkCase : case_info * constr * constr * constr array -> constr
 
@@ -170,10 +173,10 @@ val mkFix : fixpoint -> constr
 
 (** If [funnames = [|f1,.....fn|]]
       [typarray = [|t1,...tn|]]
-      [bodies   = [b1,.....bn]] 
+      [bodies   = [b1,.....bn]]
    then [mkCoFix (i, (funnames, typarray, bodies))]
    constructs the ith function of the block
-   
+
     [CoFixpoint f1 = b1
      with       f2 = b2
      ...
@@ -225,6 +228,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | CoFix     of ('constr, 'types) pcofixpoint
   | Proj      of projection * 'constr
   | Int       of Uint63.t
+  | Float     of Float64.t
 
 (** User view of [constr]. For [App], it is ensured there is at
    least one argument and the function is not itself an applicative
@@ -345,7 +349,7 @@ val equal : constr -> constr -> bool
    application grouping and the universe equalities in [u]. *)
 val eq_constr_univs : constr UGraph.check_function
 
-(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo 
+(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo
     alpha, casts, application grouping and the universe inequalities in [u]. *)
 val leq_constr_univs : constr UGraph.check_function
 
@@ -353,7 +357,7 @@ val leq_constr_univs : constr UGraph.check_function
    application grouping and the universe equalities in [u]. *)
 val eq_constr_univs_infer : UGraph.t -> constr -> constr -> bool Univ.constrained
 
-(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo 
+(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo
     alpha, casts, application grouping and the universe inequalities in [u]. *)
 val leq_constr_univs_infer : UGraph.t -> constr -> constr -> bool Univ.constrained
 
@@ -414,8 +418,8 @@ val compare_head : (constr -> constr -> bool) -> constr -> constr -> bool
 
 (** [compare_head_gen u s f c1 c2] compare [c1] and [c2] using [f] to compare
    the immediate subterms of [c1] of [c2] if needed, [u] to compare universe
-   instances (the first boolean tells if they belong to a Constant.t), [s] to 
-   compare sorts; Cast's, binders name and Cases annotations are not taken 
+   instances (the first boolean tells if they belong to a Constant.t), [s] to
+   compare sorts; Cast's, binders name and Cases annotations are not taken
     into account *)
 
 val compare_head_gen : (bool -> Univ.Instance.t -> Univ.Instance.t -> bool) ->

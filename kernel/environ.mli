@@ -286,15 +286,20 @@ module type RedNativeEntries =
 
     val get : args -> int -> elem
     val get_int :  elem -> Uint63.t
+    val get_float : elem -> Float64.t
     val is_refl : elem -> bool
     val mk_int_refl : env -> elem -> elem
     val mkInt : env -> Uint63.t -> elem
+    val mkFloat : env -> Float64.t -> elem
     val mkBool : env -> bool -> elem
     val mkCarry : env -> bool -> elem -> elem (* true if carry *)
     val mkIntPair : env -> elem -> elem -> elem
+    val mkFloatIntPair : env -> elem -> elem -> elem
     val mkLt : env -> elem
     val mkEq : env -> elem
     val mkGt : env -> elem
+    val mkNoneCmp : env -> elem
+    val mkSomeCmp : env -> elem -> elem
     val mkClos : Name.t -> constr -> constr -> elem array -> elem
   end
 

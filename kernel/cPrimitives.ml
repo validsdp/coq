@@ -34,6 +34,18 @@ type operation =
   | Int63le
   | Int63compare
   | Int63eqb_correct
+  | Float64opp
+  | Float64abs
+  | Float64compare
+  | Float64add
+  | Float64sub
+  | Float64mul
+  | Float64div
+  | Float64sqrt
+  | Float64ofInt63
+  | Float64toInt63
+  | Float64frshiftexp
+  | Float64ldshiftexp
 
 type iterator =
   | Int63foldi
@@ -72,6 +84,18 @@ let hash_operation = function
   | Int63le -> 23
   | Int63compare -> 24
   | Int63eqb_correct -> 25
+  | Float64opp -> 26
+  | Float64abs -> 27
+  | Float64compare -> 28
+  | Float64add -> 29
+  | Float64sub -> 30
+  | Float64mul -> 31
+  | Float64div -> 32
+  | Float64sqrt -> 33
+  | Float64ofInt63 -> 34
+  | Float64toInt63 -> 35
+  | Float64frshiftexp -> 36
+  | Float64ldshiftexp -> 37
 
 let hash_iterator = function
   | Int63foldi -> 1
@@ -110,6 +134,18 @@ let operation_to_string = function
   | Int63le        -> "le"
   | Int63compare   -> "compare"
   | Int63eqb_correct -> "eqb_correct"
+  | Float64opp     -> "fopp"
+  | Float64abs     -> "fabs"
+  | Float64compare -> "fcompare"
+  | Float64add     -> "fadd"
+  | Float64sub     -> "fsub"
+  | Float64mul     -> "fmul"
+  | Float64div     -> "fdiv"
+  | Float64sqrt    -> "fsqrt"
+  | Float64ofInt63 -> "float_of_int"
+  | Float64toInt63 -> "float_to_int"
+  | Float64frshiftexp -> "frshiftexp"
+  | Float64ldshiftexp -> "ldshiftexp"
 
 let iterator_to_string = function
   | Int63foldi    -> "foldi"
@@ -145,6 +181,12 @@ let operation_kind = function
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
   | Int63eqb_correct -> [Karg;Karg;Kwhnf]
 
+  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64frshiftexp -> [Kwhnf]
+
+  | Float64compare | Float64add | Float64sub | Float64mul
+  | Float64div | Float64sqrt | Float64ldshiftexp -> [Kwhnf;Kwhnf]
+
 let kind = function
   | Operation op -> operation_kind op
   | Iterator _ -> iterator_kind
@@ -165,6 +207,12 @@ let operation_arity = function
   | Int63div21 | Int63addMulDiv -> (0,3)
   | Int63eqb_correct -> (0,3)
 
+  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64frshiftexp -> (0,1)
+
+  | Float64compare | Float64add | Float64sub | Float64mul
+  | Float64div | Float64sqrt | Float64ldshiftexp -> (0,2)
+
 let arity = function
   | Operation op -> operation_arity op
   | Iterator _ -> iterator_arity
@@ -176,10 +224,12 @@ type prim_ind =
   | PIT_carry
   | PIT_pair
   | PIT_cmp
+  | PIT_option
   | PIT_eq
 
 type prim_type =
   | PT_int63
+  | PT_float64
 
 type op_or_type =
   | OT_op of t
@@ -190,10 +240,12 @@ let prim_ind_to_string = function
   | PIT_carry -> "carry"
   | PIT_pair -> "pair"
   | PIT_cmp -> "cmp"
+  | PIT_option -> "option"
   | PIT_eq -> "eq"
 
 let prim_type_to_string = function
   | PT_int63 -> "int63"
+  | PT_float64 -> "float64"
 
 let op_or_type_to_string = function
   | OT_op op -> to_string op

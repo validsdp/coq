@@ -47,6 +47,7 @@ type notation_constr =
   | NCast of notation_constr * notation_constr cast_type
   | NProj of Projection.t * notation_constr
   | NInt of Uint63.t
+  | NFloat of Float64.t
 
 (** Note concerning NList: first constr is iterator, second is terminator;
     first id is where each argument of the list has to be substituted

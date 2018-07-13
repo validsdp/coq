@@ -1,0 +1,48 @@
+(************************************************************************)
+(*         *   The Coq Proof Assistant / The Coq Development Team       *)
+(*  v      *   INRIA, CNRS and contributors - Copyright 1999-2018       *)
+(* <O___,, *       (see CREDITS file for the list of authors)           *)
+(*   \VV/  **************************************************************)
+(*    //   *    This file is distributed under the terms of the         *)
+(*         *     GNU Lesser General Public License Version 2.1          *)
+(*         *     (see LICENSE file for the text of the license)         *)
+(************************************************************************)
+
+type t
+
+val is_nan : t -> bool
+
+val to_string : t -> string
+val of_string : string -> t
+
+val opp : t -> t
+val abs : t -> t
+
+type float_comparison = Eq | Lt | Gt | NotComparable
+
+(** The IEEE 754 float comparison.
+ * NotComparable is returned if there is a NaN in the arguments *)
+val compare : t -> t -> float_comparison
+
+val mul : t -> t -> t
+val add : t -> t -> t
+val sub : t -> t -> t
+val div : t -> t -> t
+val sqrt : t -> t
+
+(** Link with integers *)
+val of_int63 : Uint63.t -> t
+val to_int63 : t -> Uint63.t
+
+(** Shifted exponent extraction *)
+val frshiftexp : t -> t * Uint63.t (* float remainder, shifted exponent *)
+val ldshiftexp : t -> Uint63.t -> t
+
+(** Return true if two floats are equal.
+ * All NaN values are considered equal. *)
+val equal : t -> t -> bool
+
+val hash : t -> int
+
+(** Total order relation over float values. Behaves like [Pervasives.compare].*)
+val total_compare : t -> t -> int

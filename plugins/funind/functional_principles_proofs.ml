@@ -50,11 +50,11 @@ let pr_leconstr_fp =
 
 let debug_queue = Stack.create ()
 
-let rec print_debug_queue e = 
-  if  not (Stack.is_empty debug_queue) 
+let rec print_debug_queue e =
+  if  not (Stack.is_empty debug_queue)
   then
     begin
-      let lmsg,goal = Stack.pop debug_queue in 
+      let lmsg,goal = Stack.pop debug_queue in
       let _ =
 	match e with
 	| Some e ->
@@ -71,11 +71,11 @@ let observe strm =
   then Feedback.msg_debug strm
   else ()
 
-let do_observe_tac s tac g = 
+let do_observe_tac s tac g =
   let goal = Printer.pr_goal g in
-  let lmsg = (str "observation : ") ++ s in 
+  let lmsg = (str "observation : ") ++ s in
   Stack.push (lmsg,goal) debug_queue;
-  try 
+  try
     let v = tac g in
     ignore(Stack.pop debug_queue);
     v
@@ -91,7 +91,7 @@ let observe_tac_stream s tac g =
   else tac g
 
 let observe_tac s = observe_tac_stream (str s)
-  
+
 
 let list_chop ?(msg="") n l =
   try
@@ -626,7 +626,7 @@ let treat_new_case ptes_infos nb_prod continue_tac term dyn_infos =
 	   }
 	 in
 	 clean_goal_with_heq ptes_infos continue_tac new_infos  g'
-      )]) 
+      )])
     ]
       g
 
@@ -702,7 +702,8 @@ let build_proof
         let sigma = project g in
 (*      observe (str "proving on " ++ Printer.pr_lconstr_env (pf_env g) term);*)
 	match EConstr.kind sigma dyn_infos.info with
-    | Int _ -> user_err Pp.(str "integers not handled yet") (* FIXME *)
+    | Int _ | Float _ ->
+        user_err Pp.(str "primitive values not handled yet") (* FIXME *)
 	  | Case(ci,ct,t,cb) ->
 	      let do_finalize_t dyn_info' =
 		fun g ->
@@ -776,6 +777,7 @@ let build_proof
 	      begin
 		match EConstr.kind sigma f with
       | Int _ -> user_err Pp.(str "integer cannot be applied")
+      | Float _ -> user_err Pp.(str "float cannot be applied")
 		  | App _ -> assert false (* we have collected all the app in decompose_app *)
 		  | Proj _ -> assert false (*FIXME*)
 		  | Var _ | Construct _ | Rel _ | Evar _ | Meta _  | Ind _ | Sort _ | Prod _ ->
@@ -983,7 +985,7 @@ let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num 
   (*   observe (str "eq_rhs " ++  pr_lconstr eq_rhs); *)
   let (type_ctxt,type_of_f),evd =
     let evd,t = Typing.type_of ~refresh:true (Global.env ()) evd f
-    in 
+    in
     decompose_prod_n_assum evd
       (nb_params + nb_args) t,evd
   in
@@ -1015,7 +1017,7 @@ let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num 
   lemma_type
   (Lemmas.mk_hook (fun _ _ -> ()));
   ignore (Pfedit.by (Proofview.V82.tactic prove_replacement));
-  Lemmas.save_proof (Vernacexpr.(Proved(Transparent,None))); 
+  Lemmas.save_proof (Vernacexpr.(Proved(Transparent,None)));
   evd
 
 
@@ -1053,8 +1055,8 @@ let do_replace (evd:Evd.evar_map ref) params rec_arg_num rev_args_id f fun_num a
 	  (Constrintern.locate_reference (qualid_of_ident equation_lemma_id))
       in
       let res = EConstr.of_constr res in
-      evd:=evd';                       
-      let _ = Typing.e_type_of ~refresh:true (Global.env ()) evd res in 
+      evd:=evd';
+      let _ = Typing.e_type_of ~refresh:true (Global.env ()) evd res in
       res
   in
   let nb_intro_to_do = nb_prod (project g) (pf_concl g) in

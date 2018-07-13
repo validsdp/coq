@@ -60,14 +60,14 @@ type patches = {
   reloc_infos : (reloc_info * int array) array;
 }
 
-let patch_char4 buff pos c1 c2 c3 c4 = 
+let patch_char4 buff pos c1 c2 c3 c4 =
   Bytes.unsafe_set buff pos       c1;
   Bytes.unsafe_set buff (pos + 1) c2;
   Bytes.unsafe_set buff (pos + 2) c3;
-  Bytes.unsafe_set buff (pos + 3) c4 
-  
+  Bytes.unsafe_set buff (pos + 3) c4
+
 let patch1 buff pos n =
-  patch_char4 buff pos 
+  patch_char4 buff pos
     (Char.unsafe_chr n) (Char.unsafe_chr (n asr 8))  (Char.unsafe_chr (n asr 16))
     (Char.unsafe_chr (n asr 24))
 
@@ -228,6 +228,7 @@ let check_prim_op = function
   | Int63le        -> opCHECKLEINT63
   | Int63compare   -> opCHECKCOMPAREINT63
   | Int63eqb_correct -> assert false
+  | _ -> 0 (* TODO: BERTHOLON add float64 operations *)
 
 
 
@@ -348,9 +349,9 @@ let emit_instr env = function
 (* Emission of a current list and remaining lists of instructions. Include some peephole optimization. *)
 
 let rec emit env insns remaining = match insns with
-  | [] -> 
-     (match remaining with 
-       [] -> () 
+  | [] ->
+     (match remaining with
+       [] -> ()
      | (first::rest) -> emit env first rest)
   (* Peephole optimizations *)
   | Kpush :: Kacc n :: c ->
@@ -391,7 +392,8 @@ type to_patch = emitcodes * patches * fv
 (* Substitution *)
 let subst_strcst s sc =
   match sc with
-  | Const_sort _ | Const_b0 _ | Const_univ_level _ | Const_val _ | Const_uint _ -> sc
+  | Const_sort _ | Const_b0 _ | Const_univ_level _ | Const_val _ | Const_uint _
+  | Const_float _ -> sc
   | Const_proj p -> Const_proj (subst_constant s p)
   | Const_ind ind -> let kn,i = ind in Const_ind (subst_mind s kn, i)
 

@@ -200,7 +200,7 @@ let build_beq_scheme mode kn =
           mkVar eid, Safe_typing.empty_private_constants
         | Cast (x,_,_) -> aux (EConstr.applist (x,a))
         | App _ -> assert false
-        | Ind ((kn',i as ind'),u) (*FIXME: universes *) -> 
+        | Ind ((kn',i as ind'),u) (*FIXME: universes *) ->
             if MutInd.equal kn kn' then mkRel(eqA-nlist-i+nb_ind-1), Safe_typing.empty_private_constants
             else begin
               try
@@ -213,7 +213,7 @@ let build_beq_scheme mode kn =
                   List.fold_left Safe_typing.concat_private eff (List.rev effs)
                   in
                 let args =
-                  Array.append 
+                  Array.append
                     (Array.of_list (List.map (fun x -> lift lifti (EConstr.Unsafe.to_constr x)) a)) eqa in
                 if Int.equal (Array.length args) 0 then eq, eff
                 else mkApp (eq, args), eff
@@ -236,6 +236,7 @@ let build_beq_scheme mode kn =
         | Meta _  -> raise (EqUnknown "meta-variable")
         | Evar _  -> raise (EqUnknown "existential variable")
         | Int _ -> raise (EqUnknown "int")
+        | Float _ -> raise (EqUnknown "float")
     in
       aux t
   in
@@ -456,7 +457,7 @@ let do_replace_bl mode bl_scheme_key (ind,u as indu) aavoid narg lft rgt =
              then Tacticals.New.tclTHENLIST [Equality.replace t1 t2; Auto.default_auto ; aux q1 q2 ]
              else (
                let bl_t1, eff =
-               try 
+               try
                  let c, eff = find_scheme bl_scheme_key (fst u) (*FIXME*) in
                  mkConst c, eff
                with Not_found ->
@@ -533,8 +534,8 @@ let eqI ind l =
   let list_id = list_id l in
   let eA = Array.of_list((List.map (fun (s,_,_,_) -> mkVar s) list_id)@
                            (List.map (fun (_,seq,_,_)-> mkVar seq) list_id ))
-  and e, eff = 
-    try let c, eff = find_scheme beq_scheme_kind ind in mkConst c, eff 
+  and e, eff =
+    try let c, eff = find_scheme beq_scheme_kind ind in mkConst c, eff
     with Not_found -> user_err ~hdr:"AutoIndDecl.eqI"
       (str "The boolean equality on " ++ MutInd.print (fst ind) ++ str " is needed.");
   in (if Array.equal Constr.equal eA [||] then e else mkApp(e,eA)), eff
@@ -664,7 +665,7 @@ let side_effect_of_mode = function
 let make_bl_scheme mode mind =
   let mib = Global.lookup_mind mind in
   if not (Int.equal (Array.length mib.mind_packets) 1) then
-    user_err 
+    user_err
       (str "Automatic building of boolean->Leibniz lemmas not supported");
   let ind = (mind,0) in
   let nparams = mib.mind_nparams in
@@ -788,7 +789,7 @@ let lb_scheme_kind_aux = ref (fun () -> failwith "Undefined")
 let make_lb_scheme mode mind =
   let mib = Global.lookup_mind mind in
   if not (Int.equal (Array.length mib.mind_packets) 1) then
-    user_err 
+    user_err
       (str "Automatic building of Leibniz->boolean lemmas not supported");
   let ind = (mind,0) in
   let nparams = mib.mind_nparams in
@@ -870,7 +871,7 @@ let compute_dec_goal ind lnamesparrec nparrec =
       )
 
 let compute_dec_tact ind lnamesparrec nparrec =
-  let eq = Lazy.force eq and tt = Lazy.force tt 
+  let eq = Lazy.force eq and tt = Lazy.force tt
   and ff = Lazy.force ff and bb = Lazy.force bb in
   let list_id = list_id lnamesparrec in
   let eqI, eff = eqI ind lnamesparrec in

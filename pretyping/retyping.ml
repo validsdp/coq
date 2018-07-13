@@ -144,6 +144,7 @@ let retype ?(polyprop=true) sigma =
     | Cast (c,_, t) -> t
     | Sort _ | Prod _ -> mkSort (sort_of env cstr)
     | Int _ -> EConstr.of_constr (Typeops.type_of_int env)
+    | Float _ -> EConstr.of_constr (Typeops.type_of_float env)
 
   and sort_of env t =
     match EConstr.kind sigma t with
@@ -204,7 +205,7 @@ let get_sort_family_of ?(truncation_style=false) ?(polyprop=true) env sigma t =
 	Sorts.family (sort_of_atomic_type env sigma (type_of env f) args)
     | Lambda _ | Fix _ | Construct _ -> retype_error NotAType
     | Ind _ when truncation_style && is_template_polymorphic env sigma t -> InType
-    | _ -> 
+    | _ ->
       Sorts.family (decomp_sort env sigma (type_of env t))
   in sort_family_of env t
 
@@ -255,9 +256,9 @@ let sorts_of_context env evc ctxt =
 
 let expand_projection env sigma pr c args =
   let ty = get_type_of ~lax:true env sigma c in
-  let (i,u), ind_args = 
-    try Inductiveops.find_mrectype env sigma ty 
+  let (i,u), ind_args =
+    try Inductiveops.find_mrectype env sigma ty
     with Not_found -> retype_error BadRecursiveType
   in
-    mkApp (mkConstU (Projection.constant pr,u), 
+    mkApp (mkConstU (Projection.constant pr,u),
 	   Array.of_list (ind_args @ (c :: args)))

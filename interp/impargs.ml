@@ -224,7 +224,7 @@ let rec is_rigid_head sigma t = match kind sigma t with
         | Fix ((fi,i),_) -> is_rigid_head sigma (args.(fi.(i)))
         | _ -> is_rigid_head sigma f)
   | Lambda _ | LetIn _ | Construct _ | CoFix _ | Fix _
-  | Prod _ | Meta _ | Cast _ | Int _ -> assert false
+  | Prod _ | Meta _ | Cast _ | Int _ | Float _ -> assert false
 
 (* calcule la liste des arguments implicites *)
 
@@ -341,14 +341,14 @@ let check_correct_manual_implicits autoimps l =
   List.iter (function
     | ExplByName id,(b,fi,forced) ->
 	if not forced then
-	  user_err 
+          user_err
             (str "Wrong or non-dependent implicit argument name: " ++ Id.print id ++ str ".")
     | ExplByPos (i,_id),_t ->
 	if i<1 || i>List.length autoimps then
-	  user_err 
+          user_err
             (str "Bad implicit argument number: " ++ int i ++ str ".")
 	else
-	  user_err 
+          user_err
 	    (str "Cannot set implicit argument number " ++ int i ++
 	      str ": it has no name.")) l
 
@@ -384,7 +384,7 @@ let set_manual_implicits env flags enriching autoimps l =
           l, imp, m
       in
       let imps' = merge (k+1) l' imps in
-      let m = Option.map (fun (b,f) -> 
+      let m = Option.map (fun (b,f) ->
 	(* match imp with Some Manual -> (b,f) *)
 	(* | _ ->  *)set_maximality imps' b, f) m in
       Option.map (set_implicit id imp) m :: imps'
@@ -670,7 +670,7 @@ let check_rigidity isrigid =
   if not isrigid then
     user_err  (strbrk "Multiple sequences of implicit arguments available only for references that cannot be applied to an arbitrarily large number of arguments.")
 
-let projection_implicits env p impls = 
+let projection_implicits env p impls =
   let pb = Environ.lookup_projection p env in
     CList.skipn_at_least pb.Declarations.proj_npars impls
 

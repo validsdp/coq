@@ -180,7 +180,7 @@ let nf_evar sigma c =
 (* }}} *)
 
 (** Profiling {{{ *************************************************************)
-type profiler = { 
+type profiler = {
   profile : 'a 'b. ('a -> 'b) -> 'a -> 'b;
   reset : unit -> unit;
   print : unit -> unit }
@@ -201,23 +201,23 @@ let _ =
       Goptions.optdepr  = false;
       Goptions.optwrite = profile }
 let () =
-  let prof_total = 
-    let init = ref 0.0 in { 
+  let prof_total =
+    let init = ref 0.0 in {
     profile = (fun f x -> assert false);
     reset = (fun () -> init := Unix.gettimeofday ());
     print = (fun () -> if !something_profiled then
-        prerr_endline 
+        prerr_endline
            (Printf.sprintf "!! %-39s %10d %9.4f %9.4f %9.4f"
            "total" 0 (Unix.gettimeofday() -. !init) 0.0 0.0)) } in
   let prof_legenda = {
     profile = (fun f x -> assert false);
     reset = (fun () -> ());
     print = (fun () -> if !something_profiled then begin
-        prerr_endline 
-           (Printf.sprintf "!! %39s ---------- --------- --------- ---------" 
+        prerr_endline
+           (Printf.sprintf "!! %39s ---------- --------- --------- ---------"
            (String.make 39 '-'));
-        prerr_endline 
-           (Printf.sprintf "!! %-39s %10s %9s %9s %9s" 
+        prerr_endline
+           (Printf.sprintf "!! %-39s %10s %9s %9s %9s"
            "function" "#calls" "total" "max" "average") end) } in
   add_profiler prof_legenda;
   add_profiler prof_total
@@ -247,7 +247,7 @@ let mk_profiler s =
      if !calls <> 0 then begin
        something_profiled := true;
        prerr_endline
-         (Printf.sprintf "!! %-39s %10d %9.4f %9.4f %9.4f" 
+         (Printf.sprintf "!! %-39s %10d %9.4f %9.4f %9.4f"
          s !calls !total !max (!total /. (float_of_int !calls))) end in
   let prof = { profile = profile; reset = reset; print = print } in
   add_profiler prof;
@@ -283,7 +283,7 @@ exception NoProgress
 (*      comparison can be much faster than the HO one.          *)
 
 let unif_EQ env sigma p c =
-  let evars = existential_opt_value sigma, Evd.universes sigma in 
+  let evars = existential_opt_value sigma, Evd.universes sigma in
   try let _ = Reduction.conv env p ~evars c in true with _ -> false
 
 let unif_EQ_args env sigma pa a =
@@ -293,7 +293,7 @@ let unif_EQ_args env sigma pa a =
 
 let prof_unif_eq_args = mk_profiler "unif_EQ_args";;
 let unif_EQ_args env sigma pa a =
-  prof_unif_eq_args.profile (unif_EQ_args env sigma pa) a 
+  prof_unif_eq_args.profile (unif_EQ_args env sigma pa) a
 ;;
 
 let unif_HO env ise p c = Evarconv.the_conv_x env p c ise
@@ -376,7 +376,7 @@ let pf_unify_HO gl t1 t2 =
 (* This is what the definition of iter_constr should be... *)
 let iter_constr_LR f c = match kind c with
   | Evar (k, a) -> Array.iter f a
-  | Cast (cc, _, t) -> f cc; f t  
+  | Cast (cc, _, t) -> f cc; f t
   | Prod (_, t, b) | Lambda (_, t, b)  -> f t; f b
   | LetIn (_, v, t, b) -> f v; f t; f b
   | App (cf, a) -> f cf; Array.iter f a
@@ -385,7 +385,7 @@ let iter_constr_LR f c = match kind c with
     for i = 0 to Array.length t - 1 do f t.(i); f b.(i) done
   | Proj(_,a) -> f a
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _ | Construct _
-     | Int _) -> ()
+     | Int _ | Float _) -> ()
 
 (* The comparison used to determine which subterms matches is KEYED        *)
 (* CONVERSION. This looks for convertible terms that either have the same  *)
@@ -482,7 +482,7 @@ let mk_tpattern ?p_origin ?(hack=false) env sigma0 (ise, t) ok dir p =
     | Var _ | Ind _ | Construct _ -> KpatFixed, f, a
     | Evar (k, _) ->
       if Evd.mem sigma0 k then KpatEvar k, f, a else
-      if a <> [] then KpatFlex, f, a else 
+      if a <> [] then KpatFlex, f, a else
       (match p_origin with None -> CErrors.user_err Pp.(str "indeterminate pattern")
       | Some (dir, rule) ->
 	errorstrm (str "indeterminate " ++ pr_dir_side dir
@@ -494,7 +494,7 @@ let mk_tpattern ?p_origin ?(hack=false) env sigma0 (ise, t) ok dir p =
   let aa = Array.of_list a in
   let ise', p' = evars_for_FO ~hack env sigma0 ise (mkApp (f, aa)) in
   ise',
-  { up_k = k; up_FO = p'; up_f = f; 
+  { up_k = k; up_FO = p'; up_f = f;
     up_a = aa; up_ok = ok; up_dir = dir; up_t = t}
 
 (* Specialize a pattern after a successful match: assign a precise head *)
@@ -521,7 +521,7 @@ let nb_cs_proj_args pc f u =
   try match kind f with
   | Prod _ -> na Prod_cs
   | Sort s -> na (Sort_cs (Sorts.family s))
-  | Const (c',_) when Constant.equal c' pc -> nargs_of_proj u.up_f 
+  | Const (c',_) when Constant.equal c' pc -> nargs_of_proj u.up_f
   | Proj (c',_) when Constant.equal (Projection.constant c') pc -> nargs_of_proj u.up_f
   | Var _ | Ind _ | Construct _ | Const _ -> na (Const_cs (global_of_constr f))
   | _ -> -1
@@ -553,7 +553,7 @@ let filter_upat i0 f n u fpats =
   if n < na then fpats else
   let np = match u.up_k with
   | KpatConst when equal u.up_f f -> na
-  | KpatFixed when equal u.up_f f -> na 
+  | KpatFixed when equal u.up_f f -> na
   | KpatEvar k when isEvar_k k f -> na
   | KpatLet when isLetIn f -> na
   | KpatLam when isLambda f -> na
@@ -573,8 +573,8 @@ let filter_upat_FO i0 f n u fpats =
   let np = nb_args u.up_FO in
   if n < np then fpats else
   let ok = match u.up_k with
-  | KpatConst -> equal u.up_f f 
-  | KpatFixed -> equal u.up_f f 
+  | KpatConst -> equal u.up_f f
+  | KpatFixed -> equal u.up_f f
   | KpatEvar k -> isEvar_k k f
   | KpatLet -> isLetIn f
   | KpatLam -> isLambda f
@@ -705,15 +705,15 @@ let match_upats_HO ~on_instance upats env sigma0 ise c =
 
 
 let fixed_upat = function
-| {up_k = KpatFlex | KpatEvar _ | KpatProj _} -> false 
+| {up_k = KpatFlex | KpatEvar _ | KpatProj _} -> false
 | {up_t = t} -> not (occur_existential Evd.empty (EConstr.of_constr t)) (** FIXME *)
 
 let do_once r f = match !r with Some _ -> () | None -> r := Some (f ())
 
-let assert_done r = 
+let assert_done r =
   match !r with Some x -> x | None -> CErrors.anomaly (str"do_once never called.")
 
-let assert_done_multires r = 
+let assert_done_multires r =
   match !r with
   | None -> CErrors.anomaly (str"do_once never called.")
   | Some (n, xs) ->
@@ -721,7 +721,7 @@ let assert_done_multires r =
       try List.nth xs n with Failure _ -> raise NoMatch
 
 type subst = Environ.env -> constr -> constr -> int -> constr
-type find_P = 
+type find_P =
   Environ.env -> constr -> int ->
   k:subst ->
      constr
@@ -746,7 +746,7 @@ let mk_tpattern_matcher ?(all_instances=false)
     if !nocc = max_occ then skip_occ := use_occ;
     if !nocc <= max_occ then occ_set.(!nocc - 1) else not use_occ in
   let upat_that_matched = ref None in
-  let match_EQ env sigma u = 
+  let match_EQ env sigma u =
     match u.up_k with
     | KpatLet ->
       let x, pv, t, pb = destLetIn u.up_f in
@@ -762,14 +762,14 @@ let mk_tpattern_matcher ?(all_instances=false)
        | Lambda _ -> unif_EQ env sigma u.up_f c
        | _ -> false)
     | _ -> unif_EQ env sigma u.up_f in
-let p2t p = mkApp(p.up_f,p.up_a) in 
+let p2t p = mkApp(p.up_f,p.up_a) in
 let source () = match upats_origin, upats with
-  | None, [p] -> 
-      (if fixed_upat p then str"term " else str"partial term ") ++ 
+  | None, [p] ->
+      (if fixed_upat p then str"term " else str"partial term ") ++
       pr_constr_pat (p2t p) ++ spc()
-  | Some (dir,rule), [p] -> str"The " ++ pr_dir_side dir ++ str" of " ++ 
+  | Some (dir,rule), [p] -> str"The " ++ pr_dir_side dir ++ str" of " ++
       pr_constr_pat rule ++ fnl() ++ ws 4 ++ pr_constr_pat (p2t p) ++ fnl()
-  | Some (dir,rule), _ -> str"The " ++ pr_dir_side dir ++ str" of " ++ 
+  | Some (dir,rule), _ -> str"The " ++ pr_dir_side dir ++ str" of " ++
       pr_constr_pat rule ++ spc()
   | _, [] | None, _::_::_ ->
       CErrors.anomaly (str"mk_tpattern_matcher with no upats_origin.") in
@@ -793,8 +793,8 @@ let rec uniquize = function
            equal f f1 && CArray.for_all2 equal a a1) in
     x :: uniquize (List.filter neq xs) in
 
-((fun env c h ~k -> 
-  do_once upat_that_matched (fun () -> 
+((fun env c h ~k ->
+  do_once upat_that_matched (fun () ->
     let failed_because_of_TC = ref false in
     try
       if not all_instances then match_upats_FO upats env sigma0 ise c;
@@ -855,17 +855,17 @@ let rec uniquize = function
         str(String.plural !nocc " occurence") ++ match upats_origin with
         | None -> str" of" ++ spc() ++ pr_constr_pat p'
         | Some (dir,rule) -> str" of the " ++ pr_dir_side dir ++ fnl() ++
-            ws 4 ++ pr_constr_pat p' ++ fnl () ++ 
+            ws 4 ++ pr_constr_pat p' ++ fnl () ++
             str"of " ++ pr_constr_pat rule)) : conclude)
 
-type ('ident, 'term) ssrpattern = 
+type ('ident, 'term) ssrpattern =
   | T of 'term
   | In_T of 'term
-  | X_In_T of 'ident * 'term     
-  | In_X_In_T of 'ident * 'term     
-  | E_In_X_In_T of 'term * 'ident * 'term     
-  | E_As_X_In_T of 'term * 'ident * 'term     
-        
+  | X_In_T of 'ident * 'term
+  | In_X_In_T of 'ident * 'term
+  | E_In_X_In_T of 'term * 'ident * 'term
+  | E_As_X_In_T of 'term * 'ident * 'term
+
 let pr_pattern = function
   | T t -> prl_term t
   | In_T t -> str "in " ++ prl_term t
@@ -988,13 +988,13 @@ ARGUMENT EXTEND rpattern
   SUBSTITUTED BY subst_rpattern
   | [ lconstr(c) ] -> [ T (mk_lterm c None) ]
   | [ "in" lconstr(c) ] -> [ In_T (mk_lterm c None) ]
-  | [ lconstr(x) "in" lconstr(c) ] -> 
+  | [ lconstr(x) "in" lconstr(c) ] ->
     [ X_In_T (mk_lterm x None, mk_lterm c None) ]
-  | [ "in" lconstr(x) "in" lconstr(c) ] -> 
+  | [ "in" lconstr(x) "in" lconstr(c) ] ->
     [ In_X_In_T (mk_lterm x None, mk_lterm c None) ]
-  | [ lconstr(e) "in" lconstr(x) "in" lconstr(c) ] -> 
+  | [ lconstr(e) "in" lconstr(x) "in" lconstr(c) ] ->
     [ E_In_X_In_T (mk_lterm e None, mk_lterm x None, mk_lterm c None) ]
-  | [ lconstr(e) "as" lconstr(x) "in" lconstr(c) ] -> 
+  | [ lconstr(e) "as" lconstr(x) "in" lconstr(c) ] ->
     [ E_As_X_In_T (mk_lterm e None, mk_lterm x None, mk_lterm c None) ]
 END
 
@@ -1032,7 +1032,7 @@ let of_ftactic ftac gl =
   in
   (sigma, ans)
 
-let interp_wit wit ist gl x = 
+let interp_wit wit ist gl x =
   let globarg = in_gen (glbwit wit) x in
   let arg = interp_genarg ist globarg in
   let (sigma, arg) = of_ftactic arg gl in
@@ -1158,9 +1158,9 @@ let interp_pattern ?wit_ssrpatternarg gl red redty =
       | Evar (k,_) ->
           if k = h_k || List.mem k acc || Evd.mem sigma0 k then acc else
           (update k; k::acc)
-      | _ -> CoqConstr.fold aux acc t in 
+      | _ -> CoqConstr.fold aux acc t in
       aux [] (nf_evar sigma rp) in
-    let sigma = 
+    let sigma =
       List.fold_left (fun sigma e ->
         if Evd.is_defined sigma e then sigma else (* clear may be recursive *)
         if Option.is_empty !to_clean then sigma else
@@ -1260,7 +1260,7 @@ let eval_pattern ?raise_NoMatch env0 sigma0 concl0 pattern occ do_subst =
           str " did not instantiate ?" ++ int (Evar.repr e) ++ spc () ++
           str "Does the variable bound by the \"in\" construct occur "++
           str "in the pattern?") in
-    let sigma = 
+    let sigma =
       Evd.add (Evd.remove sigma e) e {e_def with Evd.evar_body = Evar_empty} in
     sigma, e_body in
   let ex_value hole =
@@ -1270,7 +1270,7 @@ let eval_pattern ?raise_NoMatch env0 sigma0 concl0 pattern occ do_subst =
     sigma, [pat] in
   match pattern with
   | None -> do_subst env0 concl0 concl0 1, Evd.empty_evar_universe_context
-  | Some (sigma, (T rp | In_T rp)) -> 
+  | Some (sigma, (T rp | In_T rp)) ->
     let rp = fs sigma rp in
     let ise = create_evar_defs sigma in
     let occ = match pattern with Some (_, T _) -> occ | _ -> noindex in
@@ -1291,7 +1291,7 @@ let eval_pattern ?raise_NoMatch env0 sigma0 concl0 pattern occ do_subst =
     let concl = find_T env0 concl0 1 ~k:(fun env c _ h ->
       let p_sigma = unify_HO env (create_evar_defs sigma) (EConstr.of_constr c) (EConstr.of_constr p) in
       let sigma, e_body = pop_evar p_sigma ex p in
-      fs p_sigma (find_X env (fs sigma p) h 
+      fs p_sigma (find_X env (fs sigma p) h
         ~k:(fun env _ -> do_subst env e_body))) in
     let _ = end_X () in let _, _, (_, us, _) = end_T () in
     concl, us
@@ -1315,7 +1315,7 @@ let eval_pattern ?raise_NoMatch env0 sigma0 concl0 pattern occ do_subst =
   | Some (sigma, E_As_X_In_T (e, hole, p)) ->
     let p, e = fs sigma p, fs sigma e in
     let ex = ex_value hole in
-    let rp = 
+    let rp =
       let e_sigma = unify_HO env0 sigma (EConstr.of_constr hole) (EConstr.of_constr e) in
       e_sigma, fs e_sigma p in
     let rp = mk_upat_for ~hack:true env0 sigma0 rp all_ok in
@@ -1359,7 +1359,7 @@ let fill_occ_pattern ?raise_NoMatch env sigma cl pat occ h =
 ;;
 
 (* clenup interface for external use *)
-let mk_tpattern ?p_origin env sigma0 sigma_t f dir c = 
+let mk_tpattern ?p_origin env sigma0 sigma_t f dir c =
   mk_tpattern ?p_origin env sigma0 sigma_t f dir c
 ;;
 
@@ -1411,7 +1411,7 @@ ARGUMENT EXTEND ssrpatternarg TYPED AS rpattern PRINTED BY pr_rpattern
 END
 
 let pr_rpattern = pr_pattern
-  
+
 let pf_merge_uc uc gl =
   re_sig (sig_it gl) (Evd.merge_universe_context (project gl) uc)
 

@@ -35,7 +35,7 @@ let conv_leq_vecti env v1 v2 =
     v1
     v2
 
-let check_constraints cst env = 
+let check_constraints cst env =
   if Environ.check_constraints cst env then ()
   else error_unsatisfied_constraints env cst
 
@@ -147,14 +147,14 @@ let type_of_abstraction env name var ty =
 
 (* Type of an application. *)
 
-let make_judgev c t = 
+let make_judgev c t =
   Array.map2 make_judge c t
 
 let type_of_apply env func funt argsv argstv =
   let len = Array.length argsv in
-  let rec apply_rec i typ = 
+  let rec apply_rec i typ =
     if Int.equal i len then typ
-    else 
+    else
       (match kind (whd_all env typ) with
       | Prod (_,c1,c2) ->
 	let arg = argsv.(i) and argt = argstv.(i) in
@@ -166,9 +166,9 @@ let type_of_apply env func funt argsv argstv =
 	       (i+1,c1,argt)
 	       (make_judge func funt)
 	       (make_judgev argsv argstv))
-	    
+
       | _ ->
-	error_cant_apply_not_functional env 
+        error_cant_apply_not_functional env
 	  (make_judge func funt)
 	  (make_judgev argsv argstv))
   in apply_rec 0 funt
@@ -193,6 +193,15 @@ let internal_type_of_int env = type_of_int env
 
 let judge_of_int env i =
   make_judge (Constr.mkInt i) (type_of_int env)
+
+let type_of_float env =
+  match (retroknowledge env).Retroknowledge.retro_float64 with
+  | Some (_,c) -> c
+  | None -> raise
+        (Invalid_argument "Typeops.type_of_float: float64 not_defined")
+
+let judge_of_float env f =
+  make_judge (Constr.mkFloat f) (type_of_float env)
 
 (* Type of product *)
 
@@ -270,7 +279,7 @@ let check_cast env c ct k expected_type =
 let type_of_inductive_knowing_parameters env (ind,u as indu) args =
   let (mib,mip) as spec = lookup_mind_specif env ind in
   check_hyps_inclusion env mkIndU indu mib.mind_hyps;
-  let t,cst = Inductive.constrained_type_of_inductive_knowing_parameters 
+  let t,cst = Inductive.constrained_type_of_inductive_knowing_parameters
     env (spec,u) args
   in
   check_constraints cst env;
@@ -325,7 +334,7 @@ let type_of_projection env p c ct =
   assert(MutInd.equal pb.proj_ind (fst ind));
   let ty = Vars.subst_instance_constr u pb.Declarations.proj_type in
   substl (c :: CList.rev args) ty
-      
+
 
 (* Fixpoints. *)
 
@@ -365,7 +374,7 @@ let rec execute env cstr =
 
     | Const c ->
       type_of_constant env c
-	
+
     | Proj (p, c) ->
         let ct = execute env c in
           type_of_projection env p c ct
@@ -428,7 +437,7 @@ let rec execute env cstr =
       let (fix_ty,recdef') = execute_recdef env recdef i in
       let fix = (vni,recdef') in
         check_fix env fix; fix_ty
-	  
+
     | CoFix (i,recdef) ->
       let (fix_ty,recdef') = execute_recdef env recdef i in
       let cofix = (i,recdef') in
@@ -436,7 +445,8 @@ let rec execute env cstr =
 
     (* Primitive types *)
     | Int _ -> internal_type_of_int env
-	  
+    | Float _ -> type_of_float env
+
     (* Partial proofs: unsupported by the kernel *)
     | Meta _ ->
 	anomaly (Pp.str "the kernel does not support metavariables.")
@@ -463,7 +473,7 @@ let infer env constr =
   let t = execute env constr in
     make_judge constr t
 
-let infer = 
+let infer =
   if Flags.profile then
     let infer_key = CProfile.declare_profile "Fast_infer" in
       CProfile.profile2 infer_key (fun b c -> infer b c)
@@ -580,12 +590,6 @@ let check_iterator_type env op t =
 let typeof_prim env op =
   let open Retroknowledge in
   let open CPrimitives in
-  let i =
-    try type_of_int env
-    with _ ->
-      raise (Invalid_argument
-               "typeof_prim: the type int63 should be register first")
-  in
   let type_of_bool env =
     match (retroknowledge env).retro_bool with
     | Some (((ind,_),u),_) -> mkIndU (ind,u)
@@ -606,31 +610,72 @@ let typeof_prim env op =
     | Some (((ind,_),u),_,_) -> mkIndU (ind,u)
     | _ -> raise (Invalid_argument
                "typeof_prim: the type comparison should be register first") in
+  let type_of_option env =
+    match (retroknowledge env).retro_option with
+    | Some (((ind,_),u),_) -> mkIndU (ind,u)
+    | _ -> raise (Invalid_argument
+               "typeof_prim: the type option should be registered first") in
   match op with
   | Int63head0 | Int63tail0 ->
+      let i = type_of_int env in
       mkArrow i i
   | Int63add | Int63sub | Int63mul | Int63div | Int63mod
   | Int63lsr | Int63lsl | Int63land | Int63lor | Int63lxor ->
+      let i = type_of_int env in
       mkArrow i (mkArrow i i)
   | Int63addc | Int63subc | Int63addCarryC | Int63subCarryC ->
+      let i = type_of_int env in
       let c = type_of_carry env in
       mkArrow i (mkArrow i (mkApp (c,[|i|])))
   | Int63mulc | Int63diveucl ->
+      let i = type_of_int env in
       let p = type_of_pair env in
       mkArrow i (mkArrow i (mkApp (p,[|i;i|])))
   | Int63div21 ->
+      let i = type_of_int env in
       let p = type_of_pair env in
       mkArrow i (mkArrow i (mkArrow i (mkApp (p,[|i;i|]))))
   | Int63addMulDiv ->
+      let i = type_of_int env in
       mkArrow i (mkArrow i (mkArrow i i))
   | Int63eq | Int63lt | Int63le ->
+      let i = type_of_int env in
       let b = type_of_bool env in
       mkArrow i (mkArrow i b)
   | Int63compare ->
+      let i = type_of_int env in
       let cmp = type_of_cmp env in
       mkArrow i (mkArrow i cmp)
   | Int63eqb_correct ->
-     raise  (Invalid_argument "typeof_prim:Int63eqb_correct:not implemented")
+      raise  (Invalid_argument "typeof_prim:Int63eqb_correct:not implemented")
+  | Float64opp | Float64abs | Float64sqrt ->
+      let f = type_of_float env in
+      mkArrow f f
+  | Float64add | Float64sub | Float64mul | Float64div ->
+      let f = type_of_float env in
+      mkArrow f (mkArrow f f)
+  | Float64compare ->
+      let f = type_of_float env in
+      let opt = type_of_option env in
+      let cmp = type_of_cmp env in
+      mkArrow f (mkArrow f (mkApp (opt,[|cmp|])))
+  | Float64ofInt63 ->
+      let i = type_of_int env in
+      let f = type_of_float env in
+      mkArrow i f
+  | Float64toInt63 ->
+      let i = type_of_int env in
+      let f = type_of_float env in
+      mkArrow f i
+  | Float64frshiftexp ->
+      let i = type_of_int env in
+      let f = type_of_float env in
+      let p = type_of_pair env in
+      mkArrow f (mkApp (p, [|f;i|]))
+  | Float64ldshiftexp ->
+      let i = type_of_int env in
+      let f = type_of_float env in
+      mkArrow f (mkArrow i f)
 
 let check_prim_type env op t =
   if op = CPrimitives.Int63eqb_correct then
@@ -641,7 +686,7 @@ let check_prim_type env op t =
 
 let check_primitive_type env op_t t =
   match op_t with
-  | OT_type PT_int63 ->
+  | OT_type PT_int63 | OT_type PT_float64 ->
     (* FIXME *)
     if not (Constr.equal t mkSet) then check_primitive_error ()
   | OT_op p ->

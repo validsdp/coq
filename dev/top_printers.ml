@@ -214,7 +214,7 @@ let ppuniverse_level_subst l = pp (Univ.pr_universe_level_subst l)
 let ppevar_universe_context l = pp (Termops.pr_evar_universe_context l)
 let ppconstraints c = pp (pr_constraints Level.pr c)
 let ppuniverseconstraints c = pp (Universes.Constraints.pr c)
-let ppuniverse_context_future c = 
+let ppuniverse_context_future c =
   let ctx = Future.force c in
     ppuniverse_context ctx
 let ppcumulativity_info c = pp (Univ.pr_cumulativity_info Univ.Level.pr c)
@@ -287,6 +287,8 @@ let constr_display csr =
       ^(array_display bl)^")"
   | Int i ->
       "Int("^(Uint63.to_string i)^")"
+  | Float f ->
+      "Float("^(Float64.to_string f)^")"
 
   and array_display v =
     "[|"^
@@ -306,7 +308,7 @@ let constr_display csr =
     | Type u -> univ_display u;
 	"Type("^(string_of_int !cnt)^")"
 
-  and universes_display l = 
+  and universes_display l =
     Array.fold_right (fun x i -> level_display x; (string_of_int !cnt)^(if not(i="")
         then (" "^i) else "")) (Instance.to_array l) ""
 
@@ -375,7 +377,7 @@ let print_pure_constr csr =
       print_string "Constr(";
       sp_display sp;
       print_string ",";
-      print_int i; print_string ","; print_int j; 
+      print_int i; print_string ","; print_int j;
       print_string ","; universes_display u;
       print_string ")"
   | Case (ci,p,c,bl) ->
@@ -417,7 +419,9 @@ let print_pure_constr csr =
         done
       in print_string"{"; print_fix (); print_string"}"
   | Int i ->
-     print_string ("Int("^(Uint63.to_string i)^")")
+      print_string ("Int("^(Uint63.to_string i)^")")
+  | Float f ->
+      print_string ("Float("^(Float64.to_string f)^")")
 
   and box_display c = open_hovbox 1; term_display c; close_box()
 
@@ -582,7 +586,7 @@ let short_string_of_ref ?loc _ = function
         [Label.to_id (pi3 (MutInd.repr3 kn));Id.of_string ("_"^string_of_int i)]
         (Id.of_string ("_"^string_of_int j))
 
-(* Anticipate that printers can be used from ocamldebug and that 
+(* Anticipate that printers can be used from ocamldebug and that
    pretty-printer should not make calls to the global env since ocamldebug
    runs in a different process and does not have the proper env at hand *)
 let _ = Flags.in_debugger := true

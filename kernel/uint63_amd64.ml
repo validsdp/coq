@@ -14,6 +14,9 @@ let to_int i = i
 let to_int2 i = (0,i)
 let of_int64 i = assert false
 
+let of_float = int_of_float
+let to_float = float_of_int
+
 let hash i = i
 
     (* conversion of an uint63 to a string *)

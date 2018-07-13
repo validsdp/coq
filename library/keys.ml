@@ -25,6 +25,7 @@ type key =
   | KCoFix
   | KRel
   | KInt
+  | KFloat
 
 module KeyOrdered = struct
   type t = key
@@ -41,6 +42,7 @@ module KeyOrdered = struct
     | KCoFix -> 6
     | KRel -> 7
     | KInt -> 8
+    | KFloat -> 9
 
   let compare gr1 gr2 =
     match gr1, gr2 with
@@ -48,7 +50,7 @@ module KeyOrdered = struct
     | _, KGlob _ -> -1
     | KGlob _, _ -> 1
     | k, k' -> Int.compare (hash k) (hash k')
-    
+
   let equal k1 k2 =
     match k1, k2 with
     | KGlob gr1, KGlob gr2 -> RefOrdered.equal gr1 gr2
@@ -68,7 +70,7 @@ let add_kv k v m =
   try Keymap.modify k (fun k' vs -> Keyset.add v vs) m
   with Not_found -> Keymap.add k (Keyset.singleton v) m
 
-let add_keys k v = 
+let add_keys k v =
   keys := add_kv k v (add_kv v k !keys)
 
 let equiv_keys k k' =
@@ -84,7 +86,7 @@ let load_keys _ (_,(ref,ref')) =
 let cache_keys o =
   load_keys 1 o
 
-let subst_key subst k = 
+let subst_key subst k =
   match k with
   | KGlob gr -> KGlob (subst_global_reference subst gr)
   | _ -> k
@@ -98,7 +100,7 @@ let discharge_key = function
   | x -> Some x
 
 let discharge_keys (_,(k,k')) =
-  match discharge_key k, discharge_key k' with 
+  match discharge_key k, discharge_key k' with
   | Some x, Some y -> Some (x, y)
   | _ -> None
 
@@ -119,9 +121,9 @@ let declare_equiv_keys ref ref' =
   Lib.add_anonymous_leaf (inKeys (ref,ref'))
 
 let constr_key kind c =
-  let open Globnames in 
-  try 
-    let rec aux k = 
+  let open Globnames in
+  try
+    let rec aux k =
       match kind k with
       | Const (c, _) -> KGlob (ConstRef c)
       | Ind (i, u) -> KGlob (IndRef i)
@@ -130,7 +132,7 @@ let constr_key kind c =
       | App (f, _) -> aux f
       | Proj (p, _) -> KGlob (ConstRef (Names.Projection.constant p))
       | Cast (p, _, _) -> aux p
-      | Lambda _ -> KLam 
+      | Lambda _ -> KLam
       | Prod _ -> KProd
       | Case _ -> KCase
       | Fix _ -> KFix
@@ -138,9 +140,10 @@ let constr_key kind c =
       | Rel _ -> KRel
       | Meta _ -> raise Not_found
       | Evar _ -> raise Not_found
-      | Sort _ -> KSort 
+      | Sort _ -> KSort
       | LetIn _ -> KLet
       | Int _ -> KInt
+      | Float _ -> KFloat
     in Some (aux c)
   with Not_found -> None
 
@@ -157,11 +160,12 @@ let pr_key pr_global = function
   | KCoFix -> str"CoFix"
   | KRel -> str"Rel"
   | KInt -> str"Int"
+  | KFloat -> str"Float"
 
-let pr_keyset pr_global v = 
+let pr_keyset pr_global v =
   prlist_with_sep spc (pr_key pr_global) (Keyset.elements v)
 
-let pr_mapping pr_global k v = 
+let pr_mapping pr_global k v =
   pr_key pr_global k ++ str" <-> " ++ pr_keyset pr_global v
 
 let pr_keys pr_global =

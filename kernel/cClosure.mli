@@ -140,6 +140,7 @@ type fterm =
   | FLetIn of Name.t * fconstr * fconstr * constr * fconstr subs
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
+  | FFloat of Float64.t
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED

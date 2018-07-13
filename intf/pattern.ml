@@ -40,6 +40,7 @@ type constr_pattern =
   | PFix of fixpoint
   | PCoFix of cofixpoint
   | PInt of Uint63.t
+  | PFloat of Float64.t
 
 (** Nota : in a [PCase], the array of branches might be shorter than
     expected, denoting the use of a final "_ => _" branch *)

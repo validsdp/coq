@@ -18,24 +18,28 @@
 open Constr
 
 type retroknowledge = {
-    retro_int63  : (pconstant * constr) option;
-    retro_array  : (pconstant * constr) option;
-    retro_bool   : (pconstructor * pconstructor) option; (* true, false *)
-    retro_carry  : (pconstructor * pconstructor) option; (* C0, C1 *)
-    retro_pair   : pconstructor option;
-    retro_cmp    : (pconstructor * pconstructor * pconstructor) option;
+    retro_int63   : (pconstant * constr) option;
+    retro_float64 : (pconstant * constr) option;
+    retro_array   : (pconstant * constr) option;
+    retro_bool    : (pconstructor * pconstructor) option; (* true, false *)
+    retro_carry   : (pconstructor * pconstructor) option; (* C0, C1 *)
+    retro_pair    : pconstructor option;
+    retro_cmp     : (pconstructor * pconstructor * pconstructor) option;
                     (* Eq, Lt, Gt *)
-    retro_refl   : pconstructor option
+    retro_option  : (pconstructor * pconstructor) option; (* Some, None *)
+    retro_refl    : pconstructor option;
 }
 
 let empty = {
-    retro_int63 = None;
-    retro_array = None;
-    retro_bool  = None;
-    retro_carry = None;
-    retro_pair  = None;
-    retro_cmp   = None;
-    retro_refl  = None;
+    retro_int63   = None;
+    retro_float64 = None;
+    retro_array   = None;
+    retro_bool    = None;
+    retro_carry   = None;
+    retro_pair    = None;
+    retro_cmp     = None;
+    retro_option  = None;
+    retro_refl    = None;
 }
 
 type action =

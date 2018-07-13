@@ -265,6 +265,9 @@ let judge_of_letin env name defj typj j =
 let judge_of_int env v =
   Termops.on_judgment EConstr.of_constr (judge_of_int env v)
 
+let judge_of_float env v =
+  Termops.on_judgment EConstr.of_constr (judge_of_float env v)
+
 (* cstr must be in n.f. w.r.t. evars and execute returns a judgement
    where both the term and type are in n.f. *)
 let rec execute env evdref cstr =
@@ -323,7 +326,7 @@ let rec execute env evdref cstr =
         judge_of_type u
       end
 
-    | Proj (p, c) -> 
+    | Proj (p, c) ->
         let cj = execute env evdref c in
 	  judge_of_projection env !evdref p cj
 
@@ -370,6 +373,9 @@ let rec execute env evdref cstr =
 
     | Int i ->
         judge_of_int env i
+
+    | Float f ->
+        judge_of_float env f
 
 and execute_recdef env evdref (names,lar,vdef) =
   let larj = execute_array env evdref lar in

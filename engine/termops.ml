@@ -45,8 +45,8 @@ let pr_fix pr_constr ((t,i),(lna,tl,bl)) =
 	   cut() ++ str":=" ++ pr_constr bd) (Array.to_list fixl)) ++
          str"}")
 
-let pr_puniverses p u = 
-  if Univ.Instance.is_empty u then p 
+let pr_puniverses p u =
+  if Univ.Instance.is_empty u then p
   else p ++ str"(*" ++ Univ.Instance.pr Universes.pr_with_global_universes u ++ str"*)"
 
 let rec pr_constr c = match kind c with
@@ -96,6 +96,7 @@ let rec pr_constr c = match kind c with
            cut() ++ str":=" ++ pr_constr bd) (Array.to_list fixl)) ++
          str"}")
   | Int i -> str"Int("++str (Uint63.to_string i) ++ str")"
+  | Float f -> str"Float("++str (Float64.to_string f)++str")"
 
 let term_printer = ref (fun _env _sigma c -> pr_constr (EConstr.Unsafe.to_constr c))
 let print_constr_env env sigma t = !term_printer env sigma t
@@ -299,7 +300,7 @@ let pr_evar_universe_context ctx =
   let prl = pr_uctx_level ctx in
   if UState.is_empty ctx then mt ()
   else
-    (str"UNIVERSES:"++brk(0,1)++ 
+    (str"UNIVERSES:"++brk(0,1)++
        h 0 (Univ.pr_universe_context_set prl (evar_universe_context_set ctx)) ++ fnl () ++
      str"ALGEBRAIC UNIVERSES:"++brk(0,1)++
      h 0 (Univ.LSet.pr prl (UState.algebraics ctx)) ++ fnl() ++
@@ -646,9 +647,9 @@ let map_constr_with_binders_left_to_right sigma g f l c =
   let open EConstr in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> c
-  | Cast (b,k,t) -> 
-    let b' = f l b in 
+    | Construct _ | Int _ | Float _) -> c
+  | Cast (b,k,t) ->
+    let b' = f l b in
     let t' = f l t in
       if b' == b && t' == t then c
       else mkCast (b',k,t')
@@ -667,7 +668,7 @@ let map_constr_with_binders_left_to_right sigma g f l c =
       let t' = f l t in
       let b' = f (g (LocalDef (na,bo,t)) l) b in
 	if bo' == bo && t' == t && b' == b then c
-	else mkLetIn (na, bo', t', b')	    
+        else mkLetIn (na, bo', t', b')
   | App (c,[||]) -> assert false
   | App (t,al) ->
       (*Special treatment to be able to recognize partially applied subterms*)
@@ -681,7 +682,7 @@ let map_constr_with_binders_left_to_right sigma g f l c =
     let b' = f l b in
       if b' == b then c
       else mkProj (p, b')
-  | Evar (e,al) -> 
+  | Evar (e,al) ->
     let al' = Array.map_left (f l) al in
       if Array.for_all2 (==) al' al then c
       else mkEvar (e, al')
@@ -711,7 +712,7 @@ let map_constr_with_full_binders sigma g f l cstr =
   let open RelDecl in
   match EConstr.kind sigma cstr with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> cstr
+    | Construct _ | Int _ | Float _) -> cstr
   | Cast (c,k, t) ->
       let c' = f l c in
       let t' = f l t in
@@ -733,7 +734,7 @@ let map_constr_with_full_binders sigma g f l cstr =
       let c' = f l c in
       let al' = Array.map (f l) al in
       if c==c' && Array.for_all2 (==) al al' then cstr else mkApp (c', al')
-  | Proj (p,c) -> 
+  | Proj (p,c) ->
       let c' = f l c in
 	if c' == c then cstr else mkProj (p, c')
   | Evar (e,al) ->
@@ -774,7 +775,7 @@ let fold_constr_with_full_binders sigma g f n acc c =
   let inj c = EConstr.Unsafe.to_constr c in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> acc
+    | Construct _ | Int _ | Float _) -> acc
   | Cast (c,_, t) -> f n (f n acc c) t
   | Prod (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
   | Lambda (na,t,c) -> f (g (LocalAssum (na, inj t)) n) (f n acc t) c
@@ -804,7 +805,7 @@ let iter_constr_with_full_binders sigma g f l c =
   let open RelDecl in
   match EConstr.kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> ()
+    | Construct _ | Int _ | Float _) -> ()
   | Cast (c,_, t) -> f l c; f l t
   | Prod (na,t,c) -> f l t; f (g (LocalAssum (na,t)) l) c
   | Lambda (na,t,c) -> f l t; f (g (LocalAssum (na,t)) l) c

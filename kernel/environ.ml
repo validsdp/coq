@@ -516,13 +516,20 @@ let retroknowledge env = env.retroknowledge
 
 let add_retroknowledge env (pt,c) =
   match pt with
-  | Retro_type PT_int63 ->
+  | Retro_type ptyp ->
     let cte = destConst c in
     let retro = retroknowledge env in
     let retro =
-      match retro.retro_int63 with
-      | None -> { retro with retro_int63 = Some (cte,c) }
-      | Some(cte',_) -> assert (cte = cte'); retro in
+      match ptyp with
+      | PT_int63 ->
+        (match retro.retro_int63 with
+        | None -> { retro with retro_int63 = Some (cte,c) }
+        | Some(cte',_) -> assert (cte = cte'); retro)
+      | PT_float64 ->
+        (match retro.retro_float64 with
+        | None -> { retro with retro_float64 = Some (cte, c) }
+        | Some(cte',_) -> assert (cte = cte'); retro)
+      in
     { env with retroknowledge = retro }
   | Retro_ind pit ->
     let (ind,u) = destInd c in
@@ -553,6 +560,12 @@ let add_retroknowledge env (pt,c) =
           | None -> (((ind,1), u), ((ind,2),u), ((ind,3),u))
           | Some ((((ind',_),_),_,_) as t) -> assert (eq_ind ind ind'); t in
         { retro with retro_cmp = Some r }
+      | PIT_option ->
+        let r =
+          match retro.retro_option with
+          | None -> (((ind, 1), u), ((ind, 2), u))
+          | Some ((((ind',_),_),_) as t) -> assert (eq_ind ind ind'); t in
+        { retro with retro_option = Some r }
       | PIT_eq ->
         let r =
           match retro.retro_refl with
@@ -579,15 +592,20 @@ module type RedNativeEntries =
 
     val get : args -> int -> elem
     val get_int :  elem -> Uint63.t
+    val get_float : elem -> Float64.t
     val is_refl : elem -> bool
     val mk_int_refl : env -> elem -> elem
     val mkInt : env -> Uint63.t -> elem
+    val mkFloat : env -> Float64.t -> elem
     val mkBool : env -> bool -> elem
     val mkCarry : env -> bool -> elem -> elem (* true if carry *)
     val mkIntPair : env -> elem -> elem -> elem
+    val mkFloatIntPair : env -> elem -> elem -> elem
     val mkLt : env -> elem
     val mkEq : env -> elem
     val mkGt : env -> elem
+    val mkNoneCmp : env -> elem
+    val mkSomeCmp : env -> elem -> elem
     val mkClos : Name.t -> constr -> constr -> elem array -> elem
 
   end
@@ -610,13 +628,14 @@ struct
   type args = E.args
 
   let get_int args i = E.get_int (E.get args i)
-
   let get_int1 args = get_int args 0
-
   let get_int2 args = get_int args 0, get_int args 1
-
   let get_int3 args =
     get_int args 0, get_int args 1, get_int args 2
+
+  let get_float args i = E.get_float (E.get args i)
+  let get_float1 args = get_float args 0
+  let get_float2 args = get_float args 0, get_float args 1
 
   let red_op env op args =
     let open CPrimitives in
@@ -698,6 +717,39 @@ struct
     | Int63eqb_correct ->
       if E.is_refl (E.get args 2) then E.mk_int_refl env (E.get args 0)
       else raise (Invalid_argument "red_prim:eqb_correct:not refl")
+    | Float64opp ->
+      let f = get_float1 args in E.mkFloat env (Float64.opp f)
+    | Float64abs ->
+      let f = get_float1 args in E.mkFloat env (Float64.abs f)
+    | Float64compare ->
+      let f1, f2 = get_float2 args in
+      (match Float64.compare f1 f2 with
+      | Float64.Eq -> E.mkSomeCmp env (E.mkEq env)
+      | Float64.Lt -> E.mkSomeCmp env (E.mkLt env)
+      | Float64.Gt -> E.mkSomeCmp env (E.mkGt env)
+      | Float64.NotComparable -> E.mkNoneCmp env)
+    | Float64add ->
+      let f1, f2 = get_float2 args in E.mkFloat env (Float64.add f1 f2)
+    | Float64sub ->
+      let f1, f2 = get_float2 args in E.mkFloat env (Float64.sub f1 f2)
+    | Float64mul ->
+      let f1, f2 = get_float2 args in E.mkFloat env (Float64.mul f1 f2)
+    | Float64div ->
+      let f1, f2 = get_float2 args in E.mkFloat env (Float64.div f1 f2)
+    | Float64sqrt ->
+      let f = get_float1 args in E.mkFloat env (Float64.sqrt f)
+    | Float64ofInt63 ->
+      let i = get_int1 args in E.mkFloat env (Float64.of_int63 i)
+    | Float64toInt63 ->
+      let f = get_float1 args in E.mkInt env (Float64.to_int63 f)
+    | Float64frshiftexp ->
+      let f = get_float1 args in
+      let (m,e) = Float64.frshiftexp f in
+      E.mkFloatIntPair env (E.mkFloat env m) (E.mkInt env e)
+    | Float64ldshiftexp ->
+      let f = get_float args 0 in
+      let e = get_int args 1 in
+      E.mkFloat env (Float64.ldshiftexp f e)
 
   (* Reduction des iterateurs *)
   (* foldi_cont A B f min max cont

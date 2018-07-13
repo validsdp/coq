@@ -107,6 +107,7 @@ let change_vars =
       | GSort _ as x -> x
       | GHole _ as x -> x
       | GInt _ as x -> x
+      | GFloat _ as x -> x
       | GCast(b,c) ->
 	  GCast(change_vars mapping b,
 		Miscops.map_cast_type (change_vars mapping) c)
@@ -288,6 +289,7 @@ let rec alpha_rt excluded rt =
     | GRec _ -> user_err Pp.(str "Not handled GRec")
     | GSort _
     | GInt _
+    | GFloat _
     | GHole _ as rt -> rt
     | GCast (b,c) ->
 	GCast(alpha_rt excluded b,
@@ -349,7 +351,7 @@ let is_free_in id =
     | GCast (b,(CastConv t|CastVM t|CastNative t)) -> is_free_in b || is_free_in t
     | GCast (b,CastCoerce) -> is_free_in b
     | GProj (_,c) -> is_free_in c
-    | GInt _ -> false
+    | GInt _ | GFloat _ -> false
     ) x
   and is_free_in_br (_,(ids,_,rt)) =
     (not (Id.List.mem id ids)) && is_free_in rt
@@ -441,6 +443,7 @@ let replace_var_by_term x_id term =
       | GSort _
       | GHole _ as rt -> rt
       | GInt _ as rt -> rt
+      | GFloat _ as rt -> rt
       | GCast(b,c) ->
 	  GCast(replace_var_by_pattern b,
 		Miscops.map_cast_type replace_var_by_pattern c)
@@ -525,7 +528,7 @@ let expand_as =
       | PatCstr(_,patl,_) -> List.fold_left add_as map patl
   in
   let rec expand_as map = DAst.map (function
-      | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ | GInt _ as rt -> rt
+      | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ | GInt _ | GFloat _ as rt -> rt
       | GVar id as rt ->
 	  begin
 	    try
@@ -556,16 +559,16 @@ let expand_as =
   in
   expand_as Id.Map.empty
 
-(* [resolve_and_replace_implicits ?expected_type env sigma rt] solves implicits of [rt] w.r.t. [env] and [sigma] and then replace them by their solution 
+(* [resolve_and_replace_implicits ?expected_type env sigma rt] solves implicits of [rt] w.r.t. [env] and [sigma] and then replace them by their solution
  *)
 
 exception Found of Evd.evar_info
 let resolve_and_replace_implicits ?(flags=Pretyping.all_and_fail_flags) ?(expected_type=Pretyping.WithoutTypeConstraint) env sigma rt =
   let open Evd in
-  let open Evar_kinds in 
+  let open Evar_kinds in
   (* we first (pseudo) understand [rt] and get back the computed evar_map *)
-  (* FIXME : JF (30/03/2017) I'm not completely sure to have split understand as needed. 
-If someone knows how to prevent solved existantial removal in  understand, please do not hesitate to change the computation of [ctx] here *) 
+  (* FIXME : JF (30/03/2017) I'm not completely sure to have split understand as needed.
+If someone knows how to prevent solved existantial removal in  understand, please do not hesitate to change the computation of [ctx] here *)
   let ctx,_,_ = Pretyping.ise_pretype_gen flags env sigma Glob_ops.empty_lvar expected_type rt in
   let ctx, f = Evarutil.nf_evars_and_universes ctx in
 
@@ -596,7 +599,7 @@ If someone knows how to prevent solved existantial removal in  understand, pleas
        )
     | (GHole(BinderType na,_,_)) -> (* we only want to deal with implicit arguments *)
        (
-         let res = 
+         let res =
            try (* we scan the new evar map to find the evar corresponding to this hole (by looking the source *)
              Evd.fold (* to simulate an iter *)
                (fun _ evi _ ->
@@ -615,9 +618,9 @@ If someone knows how to prevent solved existantial removal in  understand, pleas
                    (* we just have to lift the solution in glob_term *)
                    Detyping.detype Detyping.Now false Id.Set.empty env ctx (EConstr.of_constr (f c))
                 | Evar_empty -> rt (* the hole was not solved : we d when falseo nothing *)
-         in 
+         in
          res
        )
-    | _ -> Glob_ops.map_glob_constr change rt 
+    | _ -> Glob_ops.map_glob_constr change rt
   in
   change rt

@@ -52,7 +52,7 @@ let find_coinductive env c =
 
 let inductive_params (mib,_) = mib.mind_nparams
 
-let inductive_paramdecls (mib,u) = 
+let inductive_paramdecls (mib,u) =
   Vars.subst_instance_context u mib.mind_params_ctxt
 
 let instantiate_inductive_constraints mib u =
@@ -103,7 +103,7 @@ let full_inductive_instantiate mib u params sign =
 let full_constructor_instantiate ((mind,_),u,(mib,_),params) t =
   let inst_ind = constructor_instantiate mind u mib t in
    instantiate_params true inst_ind u params mib.mind_params_ctxt
-		      
+
 (************************************************************************)
 (************************************************************************)
 
@@ -217,7 +217,7 @@ let type_of_inductive_gen ?(polyprop=true) env ((mib,mip),u) paramtyps =
       then raise (SingletonInductiveBecomesProp mip.mind_typename);
       Term.mkArity (List.rev ctx,s)
 
-let type_of_inductive env pind = 
+let type_of_inductive env pind =
   type_of_inductive_gen env pind [||]
 
 let constrained_type_of_inductive env ((mib,mip),u as pind) =
@@ -291,7 +291,7 @@ let get_instantiated_arity (ind,u) (mib,mip) params =
 let elim_sorts (_,mip) = mip.mind_kelim
 
 let is_private (mib,_) = mib.mind_private = Some true
-let is_primitive_record (mib,_) = 
+let is_primitive_record (mib,_) =
   match mib.mind_record with
   | Some (Some _) -> true
   | _ -> false
@@ -341,7 +341,7 @@ let is_correct_arity env c pj ind specif params =
       | _ ->
 	  raise (LocalArity None)
   in
-  try srec env pj.uj_type (List.rev arsign) 
+  try srec env pj.uj_type (List.rev arsign)
   with LocalArity kinds ->
     error_elim_arity env ind (elim_sorts specif) c pj kinds
 
@@ -518,10 +518,10 @@ let push_fix_renv renv (_,v,_ as recdef) =
 (* Definition and manipulation of the stack *)
 type stack_element = |SClosure of guard_env*constr |SArg of subterm_spec Lazy.t
 
-let push_stack_closures renv l stack = 
+let push_stack_closures renv l stack =
   List.fold_right (fun h b -> (SClosure (renv,h))::b) l stack
 
-let push_stack_args l stack = 
+let push_stack_args l stack =
   List.fold_right (fun h b -> (SArg h)::b) l stack
 
 (******************************)
@@ -541,7 +541,7 @@ let match_inductive ind ra =
    [branches_specif renv c_spec ci] returns an array of x_s specs knowing
    c_spec. *)
 let branches_specif renv c_spec ci =
-  let car = 
+  let car =
     (* We fetch the regular tree associated to the inductive of the match.
        This is just to get the number of constructors (and constructor
        arities) that fit the match branches without forcing c_spec.
@@ -552,7 +552,7 @@ let branches_specif renv c_spec ci =
       Array.map List.length v in
     Array.mapi
       (fun i nca -> (* i+1-th cstructor has arity nca *)
-	 let lvra = lazy 
+         let lvra = lazy
 	   (match Lazy.force c_spec with
 		Subterm (_,t) when match_inductive ci.ci_ind (dest_recarg t) ->
 		  let vra = Array.of_list (dest_subterms t).(i) in
@@ -561,7 +561,7 @@ let branches_specif renv c_spec ci =
 	      | Dead_code -> Array.make nca Dead_code
 	      | _ -> Array.make nca Not_subterm) in
 	 List.init nca (fun j -> lazy (Lazy.force lvra).(j)))
-      car 
+      car
 
 let check_inductive_codomain env p =
   let absctx, ar = dest_lam_assum env p in
@@ -755,8 +755,8 @@ let rec subterm_specif renv stack t =
 	 n, one may assume that x itself is strictly less than n
       *)
     if not (check_inductive_codomain renv.env typarray.(i)) then Not_subterm
-    else 
-      let (ctxt,clfix) = dest_prod renv.env typarray.(i) in	    
+    else
+      let (ctxt,clfix) = dest_prod renv.env typarray.(i) in
       let oind =
         let env' = push_rel_context ctxt renv.env in
           try Some(fst(find_inductive env' clfix))
@@ -796,7 +796,7 @@ let rec subterm_specif renv stack t =
       (* Metas and evars are considered OK *)
     | (Meta _|Evar _) -> Dead_code
 
-    | Proj (p, c) -> 
+    | Proj (p, c) ->
       let subt = subterm_specif renv stack c in
       (match subt with
        | Subterm (s, wf) ->
@@ -812,7 +812,7 @@ let rec subterm_specif renv stack t =
        | Not_subterm -> Not_subterm)
 
     | Var _ | Sort _ | Cast _ | Prod _ | LetIn _ | App _ | Const _ | Ind _
-      | Construct _ | CoFix _ | Int _ -> Not_subterm
+      | Construct _ | CoFix _ | Int _ | Float _ -> Not_subterm
 
 
       (* Other terms are not subterms *)
@@ -870,7 +870,7 @@ let filter_stack_domain env ci p stack =
       let env = push_rel_context ctx env in
       let ty, args = decompose_app (whd_all env a) in
       let elt = match kind ty with
-      | Ind ind -> 
+      | Ind ind ->
         let spec' = stack_element_specif elt in
         (match (Lazy.force spec') with
         | Not_subterm | Dead_code -> elt
@@ -891,8 +891,8 @@ let filter_stack_domain env ci p stack =
 let check_one_fix renv recpos trees def =
   let nfi = Array.length recpos in
 
-  (* Checks if [t] only make valid recursive calls 
-     [stack] is the list of constructor's argument specification and 
+  (* Checks if [t] only make valid recursive calls
+     [stack] is the list of constructor's argument specification and
      arguments that will be applied after reduction.
      example u in t where we have (match .. with |.. => t end) u *)
   let rec check_rec_call renv stack t =
@@ -918,7 +918,7 @@ let check_one_fix renv recpos trees def =
                   let z = List.nth stack' np in
 	          if not (check_is_subterm (stack_element_specif z) trees.(glob)) then
                     begin match z with
-		      |SClosure (z,z') -> error_illegal_rec_call renv glob (z,z') 
+                      |SClosure (z,z') -> error_illegal_rec_call renv glob (z,z')
 		      |SArg _ -> error_partial_apply renv glob
 		    end
               end
@@ -932,16 +932,16 @@ let check_one_fix renv recpos trees def =
                     with FixGuardError _ ->
                       check_rec_call renv stack (Term.applist(lift p c,l))
               end
-		
+
         | Case (ci,p,c_0,lrest) ->
             List.iter (check_rec_call renv []) (c_0::p::l);
             (* compute the recarg information for the arguments of
                each branch *)
-            let case_spec = branches_specif renv 
+            let case_spec = branches_specif renv
 	      (lazy_subterm_specif renv [] c_0) ci in
 	    let stack' = push_stack_closures renv l stack in
         let stack' = filter_stack_domain renv.env ci p stack' in
-              Array.iteri (fun k br' -> 
+              Array.iteri (fun k br' ->
 			     let stack_br = push_stack_args case_spec.(k) stack' in
 			     check_rec_call renv stack_br br') lrest
 
@@ -1012,11 +1012,11 @@ let check_one_fix renv recpos trees def =
                   List.iter (check_rec_call renv []) l
               | LocalDef (_,c,_) ->
                   try List.iter (check_rec_call renv []) l
-                  with (FixGuardError _) -> 
+                  with (FixGuardError _) ->
 		    check_rec_call renv stack (Term.applist(c,l))
             end
 
-        | Sort _ | Int _ ->
+        | Sort _ | Int _ | Float _ ->
           assert (List.is_empty l)
 
         (* l is not checked because it is considered as the meta's context *)
@@ -1034,7 +1034,7 @@ let check_one_fix renv recpos trees def =
             let renv' = push_var_renv renv (x,a) in
 	      check_nested_fix_body renv' (decr-1) recArgsDecrArg b
 	| _ -> anomaly (Pp.str "Not enough abstractions in fix body.")
-	    
+
   in
   check_rec_call renv [] def
 
@@ -1199,7 +1199,7 @@ let check_one_cofix env nbfix def deftype =
         | Evar _ ->
 	    List.iter (check_rec_call env alreadygrd n tree vlra) args
         | Rel _ | Var _ | Sort _ | Cast _ | Prod _ | LetIn _ | App _ | Const _
-          | Ind _ | Fix _ | Proj _ | Int _ ->
+          | Ind _ | Fix _ | Proj _ | Int _ | Float _ ->
            raise (CoFixGuardError (env,NotGuardedForm t)) in
 
   let ((mind, _),_) = codomain_is_coind env deftype in

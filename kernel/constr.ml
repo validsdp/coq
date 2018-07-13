@@ -16,7 +16,7 @@
 (* Optimization of substitution functions by Chet Murthy *)
 (* Optimization of lifting functions by Bruno Barras, Mar 1997 *)
 (* Hash-consing by Bruno Barras in Feb 1998 *)
-(* Restructuration of Coq of the type-checking kernel by Jean-Christophe 
+(* Restructuration of Coq of the type-checking kernel by Jean-Christophe
    Filliâtre, 1999 *)
 (* Abstraction of the syntax of terms and iterators by Hugo Herbelin, 2000 *)
 (* Cleaning and lightening of the kernel by Bruno Barras, Nov 2001 *)
@@ -102,6 +102,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | CoFix     of ('constr, 'types) pcofixpoint
   | Proj      of projection * 'constr
   | Int       of Uint63.t
+  | Float     of Float64.t
 (* constr is the fixpoint of the previous type. Requires option
    -rectypes of the Caml compiler to be set *)
 type t = (t, t, Sorts.t, Instance.t) kind_of_term
@@ -238,6 +239,9 @@ let mkVar id = Var id
 
 (* Constructs a primitive integer *)
 let mkInt i = Int i
+
+(* Constructs a primitive float number *)
+let mkFloat f = Float f
 
 (************************************************************************)
 (*    kind_of_term = constructions as seen by the user                 *)
@@ -427,7 +431,7 @@ let decompose_appvect c =
 
 let fold f acc c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> acc
+    | Construct _ | Int _ | Float _) -> acc
   | Cast (c,_,t) -> f (f acc c) t
   | Prod (_,t,c) -> f (f acc t) c
   | Lambda (_,t,c) -> f (f acc t) c
@@ -447,7 +451,7 @@ let fold f acc c = match kind c with
 
 let iter f c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> ()
+    | Construct _ | Int _ | Float _) -> ()
   | Cast (c,_,t) -> f c; f t
   | Prod (_,t,c) -> f t; f c
   | Lambda (_,t,c) -> f t; f c
@@ -467,7 +471,7 @@ let iter f c = match kind c with
 
 let iter_with_binders g f n c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> ()
+    | Construct _ | Int _ | Float _) -> ()
   | Cast (c,_,t) -> f n c; f n t
   | Prod (_,t,c) -> f n t; f (g n) c
   | Lambda (_,t,c) -> f n t; f (g n) c
@@ -489,7 +493,7 @@ let iter_with_binders g f n c = match kind c with
 
 let map f c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> c
+    | Construct _ | Int _ | Float _) -> c
   | Cast (b,k,t) ->
       let b' = f b in
       let t' = f t in
@@ -545,7 +549,7 @@ let map f c = match kind c with
 
 let fold_map f accu c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> accu, c
+    | Construct _ | Int _ | Float _) -> accu, c
   | Cast (b,k,t) ->
       let accu, b' = f accu b in
       let accu, t' = f accu t in
@@ -605,7 +609,7 @@ let fold_map f accu c = match kind c with
 
 let map_with_binders g f l c0 = match kind c0 with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> c0
+    | Construct _ | Int _ | Float _) -> c0
   | Cast (c, k, t) ->
     let c' = f l c in
     let t' = f l t in
@@ -675,6 +679,7 @@ let compare_head_gen_leq_with kind1 kind2 eq_universes leq_sorts eq leq t1 t2 =
   | Meta m1, Meta m2 -> Int.equal m1 m2
   | Var id1, Var id2 -> Id.equal id1 id2
   | Int i1, Int i2 -> Uint63.equal i1 i2
+  | Float f1, Float f2 -> Float64.equal f1 f2
   | Sort s1, Sort s2 -> leq_sorts s1 s2
   | Cast (c1,_,_), _ -> leq c1 t2
   | _, Cast (c2,_,_) -> leq t1 c2
@@ -701,7 +706,7 @@ let compare_head_gen_leq_with kind1 kind2 eq_universes leq_sorts eq leq t1 t2 =
       Int.equal ln1 ln2 && Array.equal_norefl eq tl1 tl2 && Array.equal_norefl eq bl1 bl2
   | (Rel _ | Meta _ | Var _ | Sort _ | Prod _ | Lambda _ | LetIn _ | App _
      | Proj _ | Evar _ | Const _ | Ind _ | Construct _ | Case _ | Fix _
-     | CoFix _ | Int _), _ -> false
+     | CoFix _ | Int _ | Float _), _ -> false
 
 (* [compare_head_gen_leq u s eq leq c1 c2] compare [c1] and [c2] using [eq] to compare
    the immediate subterms of [c1] of [c2] for conversion if needed, [leq] for cumulativity,
@@ -742,22 +747,22 @@ let equal m n = eq_constr m n (* to avoid tracing a recursive fun *)
 
 let eq_constr_univs univs m n =
   if m == n then true
-  else 
+  else
     let eq_universes _ = UGraph.check_eq_instances univs in
     let eq_sorts s1 s2 = s1 == s2 || UGraph.check_eq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2) in
-    let rec eq_constr' m n = 
+    let rec eq_constr' m n =
       m == n ||	compare_head_gen eq_universes eq_sorts eq_constr' m n
     in compare_head_gen eq_universes eq_sorts eq_constr' m n
 
 let leq_constr_univs univs m n =
   if m == n then true
-  else 
+  else
     let eq_universes _ = UGraph.check_eq_instances univs in
-    let eq_sorts s1 s2 = s1 == s2 || 
+    let eq_sorts s1 s2 = s1 == s2 ||
       UGraph.check_eq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2) in
-    let leq_sorts s1 s2 = s1 == s2 || 
+    let leq_sorts s1 s2 = s1 == s2 ||
       UGraph.check_leq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2) in
-    let rec eq_constr' m n = 
+    let rec eq_constr' m n =
       m == n ||	compare_head_gen eq_universes eq_sorts eq_constr' m n
     in
     let rec compare_leq m n =
@@ -767,10 +772,10 @@ let leq_constr_univs univs m n =
 
 let eq_constr_univs_infer univs m n =
   if m == n then true, Constraint.empty
-  else 
+  else
     let cstrs = ref Constraint.empty in
     let eq_universes strict = UGraph.check_eq_instances univs in
-    let eq_sorts s1 s2 = 
+    let eq_sorts s1 s2 =
       if Sorts.equal s1 s2 then true
       else
 	let u1 = Sorts.univ_of_sort s1 and u2 = Sorts.univ_of_sort s2 in
@@ -779,7 +784,7 @@ let eq_constr_univs_infer univs m n =
 	  (cstrs := Univ.enforce_eq u1 u2 !cstrs;
 	   true)
     in
-    let rec eq_constr' m n = 
+    let rec eq_constr' m n =
       m == n ||	compare_head_gen eq_universes eq_sorts eq_constr' m n
     in
     let res = compare_head_gen eq_universes eq_sorts eq_constr' m n in
@@ -787,10 +792,10 @@ let eq_constr_univs_infer univs m n =
 
 let leq_constr_univs_infer univs m n =
   if m == n then true, Constraint.empty
-  else 
+  else
     let cstrs = ref Constraint.empty in
     let eq_universes strict l l' = UGraph.check_eq_instances univs l l' in
-    let eq_sorts s1 s2 = 
+    let eq_sorts s1 s2 =
       if Sorts.equal s1 s2 then true
       else
 	let u1 = Sorts.univ_of_sort s1 and u2 = Sorts.univ_of_sort s2 in
@@ -798,16 +803,16 @@ let leq_constr_univs_infer univs m n =
 	else (cstrs := Univ.enforce_eq u1 u2 !cstrs;
 	      true)
     in
-    let leq_sorts s1 s2 = 
+    let leq_sorts s1 s2 =
       if Sorts.equal s1 s2 then true
-      else 
+      else
 	let u1 = Sorts.univ_of_sort s1 and u2 = Sorts.univ_of_sort s2 in
 	if UGraph.check_leq univs u1 u2 then true
 	else
-	  (cstrs := Univ.enforce_leq u1 u2 !cstrs; 
+          (cstrs := Univ.enforce_leq u1 u2 !cstrs;
 	   true)
     in
-    let rec eq_constr' m n = 
+    let rec eq_constr' m n =
       m == n ||	compare_head_gen eq_universes eq_sorts eq_constr' m n
     in
     let rec compare_leq m n =
@@ -878,6 +883,8 @@ let constr_ord_int f t1 t2 =
     | Proj (p1,c1), Proj (p2,c2) -> (Projection.compare =? f) p1 p2 c1 c2
     | Proj _, _ -> -1 | _, Proj _ -> 1
     | Int i1, Int i2 -> Uint63.compare i1 i2
+    | Int _, _ -> -1 | _, Int _ -> 1
+    | Float f1, Float f2 -> Float64.total_compare f1 f2
 
 let rec compare m n=
   constr_ord_int compare m n
@@ -962,9 +969,10 @@ let hasheq t1 t2 =
       && array_eqeq tl1 tl2
       && array_eqeq bl1 bl2
     | Int i1, Int i2 -> i1 == i2
+    | Float f1, Float f2 -> Float64.equal f1 f2
     | (Rel _ | Meta _ | Var _ | Sort _ | Cast _ | Prod _ | Lambda _ | LetIn _
       | App _ | Proj _ | Evar _ | Const _ | Ind _ | Construct _ | Case _
-      | Fix _ | CoFix _ | Int _), _ -> false
+      | Fix _ | CoFix _ | Int _ | Float _), _ -> false
 
 (** Note that the following Make has the side effect of creating
     once and for all the table we'll use for hash-consing all constr *)
@@ -1031,7 +1039,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
 	(Const (c', u'), combinesmall 9 (combine (Constant.SyntacticOrd.hash c) hu))
       | Ind (ind,u) ->
 	let u', hu = sh_instance u in
-	(Ind (sh_ind ind, u'), 
+        (Ind (sh_ind ind, u'),
 	 combinesmall 10 (combine (ind_syntactic_hash ind) hu))
       | Construct (c,u) ->
 	let u', hu = sh_instance u in
@@ -1070,6 +1078,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
       | Int i ->
         let (h,l) = Uint63.to_int2 i in
         (t, combinesmall 18 (combine h l))
+      | Float f -> (t, combinesmall 19 (Float64.hash f))
 
   and sh_rec t =
     let (y, h) = hash_term t in
@@ -1134,6 +1143,7 @@ let rec hash t =
     | Meta n -> combinesmall 15 n
     | Rel n -> combinesmall 16 n
     | Int i -> combinesmall 17 (Uint63.hash i)
+    | Float f -> combinesmall 18 (Float64.hash f)
 
 and hash_term_array t =
   Array.fold_left (fun acc t -> combine (hash t) acc) 0 t

@@ -581,13 +581,13 @@ let explicitize inctx impl (cf,f) args =
 	  tail
     | a::args, _::impl -> (Lazy.force a,None) :: exprec (q+1) (args,impl)
     | args, [] -> List.map (fun a -> (Lazy.force a,None)) args (*In case of polymorphism*)
-    | [], (imp :: _) when is_status_implicit imp && maximal_insertion_of imp -> 
+    | [], (imp :: _) when is_status_implicit imp && maximal_insertion_of imp ->
       (* The non-explicit application cannot be parsed back with the same type *)
       raise Expl
     | [], _ -> []
   in
   let ip = is_projection (List.length args) cf in
-  let expl () = 
+  let expl () =
     match ip with
     | Some i ->
       if not (List.is_empty impl) && is_status_implicit (List.nth impl (i-1)) then
@@ -604,7 +604,7 @@ let explicitize inctx impl (cf,f) args =
 	if List.is_empty args then f.CAst.v else CApp ((None, f), args)
   in
     try expl ()
-    with Expl -> 
+    with Expl ->
       let f',us = match f with { CAst.v = CRef (f,us) } -> f,us | _ -> assert false in
       let ip = if !print_projections then ip else None in
 	CAppExpl ((ip, f', us), List.map Lazy.force args)
@@ -731,7 +731,7 @@ let extern_glob_sort = function
 let extern_universes = function
   | Some _ as l when !print_universes -> l
   | _ -> None
-  
+
 let rec extern inctx scopes vars r =
   let r' = remove_coercions inctx r in
   try
@@ -917,7 +917,9 @@ let rec extern inctx scopes vars r =
     let pr = extern_reference ?loc Id.Set.empty (ConstRef (Projection.constant p)) in
     CProj (pr, sub_extern inctx scopes vars c)
   | GInt i ->
-     CPrim(Numeral (Uint63.to_string i,true)) (* FIXME *)
+    CPrim(Numeral (Uint63.to_string i,true)) (* FIXME *)
+  | GFloat f ->
+    CPrim(String (Float64.to_string f)) (* FIXME too *)
   ) r'
 
 
@@ -1231,6 +1233,7 @@ let rec glob_of_pat avoid env sigma pat = DAst.make @@ match pat with
   | PCoFix c -> DAst.get (Detyping.detype_names false avoid env (Global.env()) sigma (EConstr.of_constr (mkCoFix c)))
   | PSort s -> GSort s
   | PInt i -> GInt i
+  | PFloat f -> GFloat f
 
 let extern_constr_pattern env sigma pat =
   extern true (None,[]) Id.Set.empty (glob_of_pat Id.Set.empty env sigma pat)

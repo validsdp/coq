@@ -30,6 +30,7 @@ type lambda =
   | Lint          of int
   | Lmakeblock    of int * lambda array
   | Luint         of Uint63.t
+  | Lfloat        of Float64.t
   | Lval          of structured_values
   | Lsort         of Sorts.t
   | Lind          of pinductive
@@ -149,6 +150,7 @@ let rec pp_lam lam =
        prlist_with_sep spc pp_lam (Array.to_list args) ++
        str")")
   | Luint i -> str (Uint63.to_string i)
+  | Lfloat f -> str (Float64.to_string f)
   | Lval _ -> str "values"
   | Lsort s -> pp_sort s
   | Lind ((mind,i), _) -> MutInd.print mind ++ str"#" ++ int i
@@ -205,7 +207,8 @@ let shift subst = subs_shft (1, subst)
 
 let map_lam_with_binders g f n lam =
   match lam with
-  | Lrel _ | Lvar _  | Lconst _ | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _ -> lam
+  | Lrel _ | Lvar _  | Lconst _ | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _
+  | Lfloat _ -> lam
   | Levar (evk, args) ->
     let args' = Array.smartmap (f n) args in
     if args == args' then lam else Levar (evk, args')
@@ -432,7 +435,8 @@ let rec occurrence k kind lam =
     if n = k then
       if kind then false else raise Not_found
     else kind
-  | Lvar _  | Lconst _  | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _ -> kind
+  | Lvar _  | Lconst _  | Lval _ | Lsort _ | Lind _ | Lint _ | Luint _
+  | Lfloat _ -> kind
   | Levar (_, args) ->
     occurrence_args k kind args
   | Lprod(dom, codom) ->
@@ -919,7 +923,8 @@ let rec lambda_of_constr env c =
     let lc = lambda_of_constr env c in
     Lproj (n,kn,lc)
 
-  | Int i -> Lint (Uint63.to_int i)
+  | Int i -> Lint (Uint63.to_int i) (* FIXME: Recheck that ! May not work on 32-bit architectures ! *)
+  | Float f -> Lfloat f
 
 and lambda_of_app env f args =
   match Constr.kind f with

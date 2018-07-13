@@ -182,6 +182,7 @@ let mkCoFix f = of_kind (CoFix f)
 let mkProj (p, c) = of_kind (Proj (p, c))
 let mkArrow t1 t2 = of_kind (Prod (Anonymous, t1, t2))
 let mkInt i = of_kind (Int i)
+let mkFloat f = of_kind (Float f)
 
 let applist (f, arg) = mkApp (f, Array.of_list arg)
 let applistc f arg = mkApp (f, Array.of_list arg)
@@ -388,7 +389,7 @@ let existential_type sigma (evk, args) =
 
 let map sigma f c = match kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> c
+    | Construct _ | Int _ | Float _) -> c
   | Cast (b,k,t) ->
       let b' = f b in
       let t' = f t in
@@ -442,7 +443,7 @@ let map sigma f c = match kind sigma c with
 
 let map_with_binders sigma g f l c0 = match kind sigma c0 with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> c0
+    | Construct _ | Int _ | Float _) -> c0
   | Cast (c, k, t) ->
     let c' = f l c in
     let t' = f l t in
@@ -497,7 +498,7 @@ let map_with_binders sigma g f l c0 = match kind sigma c0 with
 
 let iter sigma f c = match kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> ()
+    | Construct _ | Int _ | Float _) -> ()
   | Cast (c,_,t) -> f c; f t
   | Prod (_,t,c) -> f t; f c
   | Lambda (_,t,c) -> f t; f c
@@ -513,7 +514,7 @@ let iter_with_full_binders sigma g f n c =
   let open Context.Rel.Declaration in
   match kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> ()
+    | Construct _ | Int _ | Float _) -> ()
   | Cast (c,_,t) -> f n c; f n t
   | Prod (na,t,c) -> f n t; f (g (LocalAssum (na, t)) n) c
   | Lambda (na,t,c) -> f n t; f (g (LocalAssum (na, t)) n) c
@@ -536,7 +537,7 @@ let iter_with_binders sigma g f n c =
 
 let fold sigma f acc c = match kind sigma c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _ | Int _) -> acc
+    | Construct _ | Int _ | Float _) -> acc
   | Cast (c,_,t) -> f (f acc c) t
   | Prod (_,t,c) -> f (f acc t) c
   | Lambda (_,t,c) -> f (f acc t) c
@@ -576,27 +577,27 @@ let test_constr_universes sigma leq m n =
   let open Universes in
   let kind c = kind_upto sigma c in
   if m == n then Some Constraints.empty
-  else 
+  else
     let cstrs = ref Constraints.empty in
-    let eq_universes strict l l' = 
+    let eq_universes strict l l' =
       let l = EInstance.kind sigma (EInstance.make l) in
       let l' = EInstance.kind sigma (EInstance.make l') in
       cstrs := enforce_eq_instances_univs strict l l' !cstrs; true in
-    let eq_sorts s1 s2 = 
+    let eq_sorts s1 s2 =
       let s1 = ESorts.kind sigma (ESorts.make s1) in
       let s2 = ESorts.kind sigma (ESorts.make s2) in
       if Sorts.equal s1 s2 then true
-      else (cstrs := Constraints.add 
-	      (Sorts.univ_of_sort s1,UEq,Sorts.univ_of_sort s2) !cstrs; 
+      else (cstrs := Constraints.add
+              (Sorts.univ_of_sort s1,UEq,Sorts.univ_of_sort s2) !cstrs;
 	    true)
     in
-    let leq_sorts s1 s2 = 
+    let leq_sorts s1 s2 =
       let s1 = ESorts.kind sigma (ESorts.make s1) in
       let s2 = ESorts.kind sigma (ESorts.make s2) in
       if Sorts.equal s1 s2 then true
-      else 
-	(cstrs := Constraints.add 
-	   (Sorts.univ_of_sort s1,ULe,Sorts.univ_of_sort s2) !cstrs; 
+      else
+        (cstrs := Constraints.add
+           (Sorts.univ_of_sort s1,ULe,Sorts.univ_of_sort s2) !cstrs;
 	 true)
     in
     let rec eq_constr' m n = compare_gen kind eq_universes eq_sorts eq_constr' m n in
@@ -620,9 +621,9 @@ let compare_head_gen_proj env sigma equ eqs eqc' m n =
   let kind c = kind_upto sigma c in
   match kind_upto sigma m, kind_upto sigma n with
   | Proj (p, c), App (f, args)
-  | App (f, args), Proj (p, c) -> 
+  | App (f, args), Proj (p, c) ->
       (match kind_upto sigma f with
-      | Const (p', u) when Constant.equal (Projection.constant p) p' -> 
+      | Const (p', u) when Constant.equal (Projection.constant p) p' ->
           let pb = Environ.lookup_projection p env in
           let npars = pb.Declarations.proj_npars in
 	  if Array.length args == npars + 1 then
@@ -634,18 +635,18 @@ let compare_head_gen_proj env sigma equ eqs eqc' m n =
 let eq_constr_universes_proj env sigma m n =
   let open Universes in
   if m == n then Some Constraints.empty
-  else 
+  else
     let cstrs = ref Constraints.empty in
-    let eq_universes strict l l' = 
+    let eq_universes strict l l' =
       cstrs := enforce_eq_instances_univs strict l l' !cstrs; true in
-    let eq_sorts s1 s2 = 
+    let eq_sorts s1 s2 =
       if Sorts.equal s1 s2 then true
       else
-	(cstrs := Constraints.add 
+        (cstrs := Constraints.add
 	   (Sorts.univ_of_sort s1, UEq, Sorts.univ_of_sort s2) !cstrs;
 	 true)
     in
-    let rec eq_constr' m n = 
+    let rec eq_constr' m n =
       m == n ||	compare_head_gen_proj env sigma eq_universes eq_sorts eq_constr' m n
     in
     let res = eq_constr' (unsafe_to_constr m) (unsafe_to_constr n) in

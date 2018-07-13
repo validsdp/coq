@@ -304,7 +304,8 @@ let rec extract_type env db j c args =
        if Projection.unfolded p then Tunknown
        else extract_type env db j (mkProj (Projection.unfold p, t)) args
     | Case _ | Fix _ | CoFix _ -> Tunknown
-    | Var _ | Meta _ | Evar _ | Cast _ | LetIn _ | Construct _ | Int _ -> assert false
+    | Var _ | Meta _ | Evar _ | Cast _ | LetIn _ | Construct _ | Int _
+    | Float _ -> assert false
 
 (*s Auxiliary function dealing with type application.
   Precondition: [r] is a type scheme represented by the signature [s],
@@ -629,6 +630,7 @@ let rec extract_term env mle mlt c args =
  	extract_app env mle mlt (extract_fix env mle i recd) args
     | Cast (c,_,_) -> extract_term env mle mlt c args
     | Int i -> assert (args = []); MLuint i
+    | Float _ -> assert false (* TODO: Implement primitive float for extraction *)
     | Ind _ | Prod _ | Sort _ | Meta _ | Evar _ | Var _ -> assert false
 
 (*s [extract_maybe_term] is [extract_term] for usual terms, else [MLdummy] *)

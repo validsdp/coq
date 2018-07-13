@@ -34,6 +34,18 @@ type operation =
   | Int63le
   | Int63compare
   | Int63eqb_correct
+  | Float64opp
+  | Float64abs
+  | Float64compare
+  | Float64add
+  | Float64sub
+  | Float64mul
+  | Float64div
+  | Float64sqrt
+  | Float64ofInt63
+  | Float64toInt63
+  | Float64frshiftexp
+  | Float64ldshiftexp
 
 type iterator =
   | Int63foldi
@@ -68,10 +80,12 @@ type prim_ind =
   | PIT_carry
   | PIT_pair
   | PIT_cmp
+  | PIT_option
   | PIT_eq
 
 type prim_type =
   | PT_int63
+  | PT_float64
 
 type op_or_type =
   | OT_op of t

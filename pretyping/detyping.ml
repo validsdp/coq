@@ -186,7 +186,7 @@ let _ = declare_bool_option
 	    optread  = print_primproj_compatibility;
 	    optwrite = (:=) print_primproj_compatibility_value }
 
-	  
+
 (* Auxiliary function for MutCase printing *)
 (* [computable] tries to tell if the predicate typing the result is inferable*)
 
@@ -522,7 +522,7 @@ let detype_level sigma l =
   let l = Termops.reference_of_level sigma l in
   GType (UNamed l)
 
-let detype_instance sigma l = 
+let detype_instance sigma l =
   let l = EInstance.kind sigma l in
   if Univ.Instance.is_empty l then None
   else Some (List.map (detype_level sigma) (Array.to_list (Univ.Instance.to_array l)))
@@ -570,9 +570,9 @@ and detype_r d flags avoid env sigma t =
     | Lambda (na,ty,c) -> detype_binder d flags BLambda avoid env sigma na None ty c
     | LetIn (na,b,ty,c) -> detype_binder d flags BLetIn avoid env sigma na (Some b) ty c
     | App (f,args) ->
-      let mkapp f' args' = 
+      let mkapp f' args' =
  	match DAst.get f' with
- 	| GApp (f',args'') -> 
+        | GApp (f',args'') ->
  	  GApp (f',args''@args')
  	| _ -> GApp (f',args')
       in
@@ -580,20 +580,20 @@ and detype_r d flags avoid env sigma t =
         (Array.map_to_list (detype d flags avoid env sigma) args)
     | Const (sp,u) -> GRef (ConstRef sp, detype_instance sigma u)
     | Proj (p,c) ->
-      let noparams () = 
+      let noparams () =
     GProj (p, detype d flags avoid env sigma c)
       in
       if fst flags || !Flags.in_debugger || !Flags.in_toplevel then
 	try noparams ()
 	with _ ->
-	    (* lax mode, used by debug printers only *) 
-	  GApp (DAst.make @@ GRef (ConstRef (Projection.constant p), None), 
+            (* lax mode, used by debug printers only *)
+          GApp (DAst.make @@ GRef (ConstRef (Projection.constant p), None),
 		[detype d flags avoid env sigma c])
-      else 
+      else
 	if print_primproj_compatibility () && Projection.unfolded p then
 	  (** Print the compatibility match version *)
-	  let c' = 
-	    try 
+          let c' =
+            try
 	      let pb = Environ.lookup_projection p (snd env) in
 	      let body = pb.Declarations.proj_body in
 	      let ty = Retyping.get_type_of (snd env) sigma c in
@@ -603,7 +603,7 @@ and detype_r d flags avoid env sigma t =
 	      let body' = CVars.subst_instance_constr u body' in
 	      let body' = EConstr.of_constr body' in
 		substl (c :: List.rev args) body'
-	    with Retyping.RetypeError _ | Not_found -> 
+            with Retyping.RetypeError _ | Not_found ->
 	      anomaly (str"Cannot detype an unfolded primitive projection.")
 	  in DAst.get (detype d flags avoid env sigma c')
 	else
@@ -654,6 +654,7 @@ and detype_r d flags avoid env sigma t =
     | Fix (nvn,recdef) -> detype_fix d flags avoid env sigma nvn recdef
     | CoFix (n,recdef) -> detype_cofix d flags avoid env sigma n recdef
     | Int i -> GInt i
+    | Float f -> GFloat f
 
 and detype_fix d flags avoid env sigma (vn,_ as nvn) (names,tys,bodies) =
   let def_avoid, def_env, lfi =
@@ -818,7 +819,7 @@ let detype_rel_context d ?(lax=false) where avoid env sigma sign =
       (na',Explicit,b',t') :: aux avoid' (add_name na' b t env) rest
   in aux avoid env (List.rev sign)
 
-let detype_names isgoal avoid nenv env sigma t = 
+let detype_names isgoal avoid nenv env sigma t =
   detype Now (false,isgoal) avoid (nenv,env) sigma t
 let detype d ?(lax=false) isgoal avoid env sigma t =
   detype d (lax,isgoal) avoid (names_of_rel_context env, env) sigma t
@@ -910,6 +911,7 @@ let rec subst_glob_constr subst = DAst.map (function
   | GVar _
   | GEvar _
   | GInt _
+  | GFloat _
   | GPatVar _ as raw -> raw
 
   | GApp (r,rl) as raw ->

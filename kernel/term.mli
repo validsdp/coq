@@ -434,7 +434,7 @@ val eq_constr : constr -> constr -> bool
 val eq_constr_univs : constr UGraph.check_function
 [@@ocaml.deprecated "Alias for Constr.eq_constr_univs"]
 
-(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo 
+(** [leq_constr_univs u a b] is [true] if [a] is convertible to [b] modulo
     alpha, casts, application grouping and the universe constraints in [u]. *)
 val leq_constr_univs : constr UGraph.check_function
 [@@ocaml.deprecated "Alias for Constr.leq_constr_univs"]
@@ -573,6 +573,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | CoFix     of ('constr, 'types) Constr.pcofixpoint
   | Proj      of projection * 'constr
   | Int       of Uint63.t
+  | Float     of Float64.t
 [@@ocaml.deprecated "Alias for Constr.kind_of_term"]
 
 type values = Vmvalues.values
