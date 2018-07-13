@@ -33,6 +33,18 @@ type t =
   | Int63lt
   | Int63le
   | Int63compare
+  | Float64opp
+  | Float64abs
+  | Float64compare
+  | Float64add
+  | Float64sub
+  | Float64mul
+  | Float64div
+  | Float64sqrt
+  | Float64ofInt63
+  | Float64toInt63
+  | Float64frshiftexp
+  | Float64ldshiftexp
 
 let equal (p1 : t) (p2 : t) =
   p1 == p2
@@ -62,6 +74,18 @@ let hash = function
   | Int63lt -> 22
   | Int63le -> 23
   | Int63compare -> 24
+  | Float64opp -> 25
+  | Float64abs -> 26
+  | Float64compare -> 27
+  | Float64add -> 28
+  | Float64sub -> 29
+  | Float64mul -> 30
+  | Float64div -> 31
+  | Float64sqrt -> 32
+  | Float64ofInt63 -> 33
+  | Float64toInt63 -> 34
+  | Float64frshiftexp -> 35
+  | Float64ldshiftexp -> 36
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -89,6 +113,18 @@ let to_string = function
   | Int63lt -> "lt"
   | Int63le -> "le"
   | Int63compare -> "compare"
+  | Float64opp -> "fopp"
+  | Float64abs -> "fabs"
+  | Float64compare -> "fcompare"
+  | Float64add -> "fadd"
+  | Float64sub -> "fsub"
+  | Float64mul -> "fmul"
+  | Float64div -> "fdiv"
+  | Float64sqrt -> "fsqrt"
+  | Float64ofInt63 -> "float_of_int"
+  | Float64toInt63 -> "float_to_int"
+  | Float64frshiftexp -> "frshiftexp"
+  | Float64ldshiftexp -> "ldshiftexp"
 
 type arg_kind =
   | Kparam (* not needed for the evaluation of the primitive when it reduces *)
@@ -113,6 +149,12 @@ let kind = function
 
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
 
+  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64frshiftexp -> [Kwhnf]
+
+  | Float64compare | Float64add | Float64sub | Float64mul
+  | Float64div | Float64sqrt | Float64ldshiftexp -> [Kwhnf;Kwhnf]
+
 let arity = function
   | Int63head0 | Int63tail0 -> 1
   | Int63add | Int63sub | Int63mul
@@ -125,6 +167,12 @@ let arity = function
   | Int63compare -> 2
 
   | Int63div21 | Int63addMulDiv -> 3
+  | Float64opp | Float64abs | Float64sqrt
+  | Float64ofInt63 | Float64toInt63
+  | Float64frshiftexp -> 1
+
+  | Float64compare | Float64add | Float64sub | Float64mul
+  | Float64div | Float64ldshiftexp -> 2
 
 (** Special Entries for Register **)
 
@@ -133,9 +181,11 @@ type prim_ind =
   | PIT_carry
   | PIT_pair
   | PIT_cmp
+  | PIT_option
 
 type prim_type =
   | PT_int63
+  | PT_float64
 
 type op_or_type =
   | OT_op of t
@@ -146,9 +196,11 @@ let prim_ind_to_string = function
   | PIT_carry -> "carry"
   | PIT_pair -> "pair"
   | PIT_cmp -> "cmp"
+  | PIT_option -> "option"
 
 let prim_type_to_string = function
   | PT_int63 -> "int63_type"
+  | PT_float64 -> "float64_type"
 
 let op_or_type_to_string = function
   | OT_op op -> to_string op

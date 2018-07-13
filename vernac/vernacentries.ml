@@ -2052,6 +2052,7 @@ let vernac_register ~pstate qid r =
         | "ind_carry" -> CPrimitives.PIT_carry
         | "ind_pair" -> CPrimitives.PIT_pair
         | "ind_cmp" -> CPrimitives.PIT_cmp
+        | "ind_option" -> CPrimitives.PIT_option
         | k -> CErrors.user_err Pp.(str "Register: unknown identifier “" ++ str k ++ str "” in the “kernel” namespace")
       in
       match gr with

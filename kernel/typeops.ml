@@ -215,14 +215,22 @@ let type_of_apply env func funt argsv argstv =
 (* Type of primitive constructs *)
 let type_of_prim_type _env = function
   | CPrimitives.PT_int63 -> Constr.mkSet
+  | CPrimitives.PT_float64 -> Constr.mkSet
 
 let type_of_int env =
   match env.retroknowledge.Retroknowledge.retro_int63 with
   | Some c -> mkConst c
   | None -> CErrors.user_err Pp.(str"The type int must be registered before this construction can be typechecked.")
 
+let type_of_float env =
+  match env.retroknowledge.Retroknowledge.retro_float64 with
+  | Some c -> mkConst c
+  | None -> raise
+        (Invalid_argument "Typeops.type_of_float: float64 not_defined")
+
 let type_of_prim env t =
-  let int_ty = type_of_int env in
+  let int_ty () = type_of_int env in
+  let float_ty () = type_of_float env in
   let bool_ty () =
     match env.retroknowledge.Retroknowledge.retro_bool with
     | Some ((ind,_),_) -> Constr.mkInd ind
@@ -238,44 +246,68 @@ let type_of_prim env t =
     | Some (ind,_) -> Constr.mkApp(Constr.mkInd ind, [|fst_ty;snd_ty|])
     | None -> CErrors.user_err Pp.(str"The type pair must be registered before this primitive.")
   in
+  let option_ty ty =
+    match env.retroknowledge.Retroknowledge.retro_option with
+    | Some ((ind,_),_) -> Constr.mkApp(Constr.mkInd ind, [|ty|])
+    | None -> CErrors.user_err Pp.(str"The type option must be registered before this primitive.")
+  in
   let carry_ty int_ty =
     match env.retroknowledge.Retroknowledge.retro_carry with
     | Some ((ind,_),_) -> Constr.mkApp(Constr.mkInd ind, [|int_ty|])
     | None -> CErrors.user_err Pp.(str"The type carry must be registered before this primitive.")
   in
-  let rec nary_int63_op arity ty =
-    if Int.equal arity 0 then ty
-      else Constr.mkProd(Context.nameR (Id.of_string "x"), int_ty, nary_int63_op (arity-1) ty)
+  let rec nary_op arity arg_ty ret_ty =
+    if Int.equal arity 0 then ret_ty
+      else Constr.mkProd(Context.nameR (Id.of_string "x"), arg_ty, nary_op (arity-1) arg_ty ret_ty)
   in
-  let return_ty =
-    let open CPrimitives in
-    match t with
-    | Int63head0
-    | Int63tail0
-    | Int63add
-    | Int63sub
-    | Int63mul
-    | Int63div
-    | Int63mod
-    | Int63lsr
-    | Int63lsl
-    | Int63land
-    | Int63lor
-    | Int63lxor
-    | Int63addMulDiv -> int_ty
-    | Int63eq
-    | Int63lt
-    | Int63le -> bool_ty ()
-    | Int63mulc
-    | Int63div21
-    | Int63diveucl -> pair_ty int_ty int_ty
-    | Int63addc
-    | Int63subc
-    | Int63addCarryC
-    | Int63subCarryC -> carry_ty int_ty
-    | Int63compare -> compare_ty ()
-  in
-  nary_int63_op (CPrimitives.arity t) return_ty
+  let open CPrimitives in
+  match t with
+  | Int63head0
+  | Int63tail0
+  | Int63add
+  | Int63sub
+  | Int63mul
+  | Int63div
+  | Int63mod
+  | Int63lsr
+  | Int63lsl
+  | Int63land
+  | Int63lor
+  | Int63lxor
+  | Int63addMulDiv -> nary_op (arity t) (int_ty ()) (int_ty ())
+  | Int63eq
+  | Int63lt
+  | Int63le -> nary_op (arity t) (int_ty ()) (bool_ty ())
+  | Int63mulc
+  | Int63div21
+  | Int63diveucl ->
+     let ret_ty = (pair_ty (int_ty ()) (int_ty ())) in
+     nary_op (arity t) (int_ty ()) ret_ty
+  | Int63addc
+  | Int63subc
+  | Int63addCarryC
+  | Int63subCarryC ->
+     let ret_ty = carry_ty (int_ty ()) in
+     nary_op (arity t) (int_ty ()) ret_ty
+  | Int63compare -> nary_op (arity t) (int_ty ()) (compare_ty ())
+  | Float64compare ->
+     let ret_ty = option_ty (compare_ty ()) in
+     nary_op (arity t) (float_ty ()) ret_ty
+  | Float64opp
+  | Float64abs
+  | Float64add
+  | Float64sub
+  | Float64mul
+  | Float64div
+  | Float64sqrt -> nary_op (arity t) (float_ty ()) (float_ty ())
+  | Float64ofInt63 -> nary_op (arity t) (int_ty ()) (float_ty ())
+  | Float64toInt63 -> nary_op (arity t) (float_ty ()) (int_ty ())
+  | Float64frshiftexp ->
+     let ret_ty = pair_ty (float_ty ()) (int_ty ()) in
+     nary_op (arity t) (float_ty ()) ret_ty
+  | Float64ldshiftexp ->
+     let ret_ty = nary_op 1 (int_ty ()) (float_ty ()) in
+     nary_op 1 (float_ty ()) ret_ty
 
 let type_of_prim_or_type env = let open CPrimitives in
   function
@@ -284,6 +316,9 @@ let type_of_prim_or_type env = let open CPrimitives in
 
 let judge_of_int env i =
   make_judge (Constr.mkInt i) (type_of_int env)
+
+let judge_of_float env f =
+  make_judge (Constr.mkFloat f) (type_of_float env)
 
 (* Type of product *)
 
@@ -605,6 +640,7 @@ let rec execute env cstr =
 
     (* Primitive types *)
     | Int _ -> cstr, type_of_int env
+    | Float _ -> cstr, type_of_float env
 
     (* Partial proofs: unsupported by the kernel *)
     | Meta _ ->
