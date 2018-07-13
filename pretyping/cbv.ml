@@ -596,7 +596,10 @@ and cbv_stack_value info env = function
             stack_app (Array.sub appl nall (len - nall)) stk
           else stk in
         match VredNative.red_prim (info_env info.infos) op c args with
-        | Some v ->  cbv_stack_value info env (v,stk)
+        | Some (CONSTR (c, args)) ->
+          (* args must be moved to the stack to allow future reductions *)
+          cbv_stack_value info env (CONSTR(c, [||]), stack_app args stk)
+        | Some v -> cbv_stack_value info env (v,stk)
         | None -> mkSTACK(PRIMITIVE(op,c,args), stk)
       else (* partical application *)
               (assert (stk = TOP);
