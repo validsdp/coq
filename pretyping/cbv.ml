@@ -200,7 +200,7 @@ module VNativeEntries =
 
     let get_int e =
       match e with
-      | VAL(0, ci) ->
+      | VAL(_, ci) ->
           (match kind ci with
           | Int i -> i
           | _ -> raise Not_found)
