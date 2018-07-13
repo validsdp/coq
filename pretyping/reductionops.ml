@@ -383,7 +383,7 @@ struct
       match c with
       | Cst_const (c, u) ->
 	if Univ.Instance.is_empty u then Constant.print c
-	else str"(" ++ Constant.print c ++ str ", " ++ 
+        else str"(" ++ Constant.print c ++ str ", " ++
 	  Univ.Instance.pr Univ.Level.pr u ++ str")"
       | Cst_proj p ->
 	str".(" ++ Constant.print (Projection.constant p) ++ str")"
@@ -585,7 +585,7 @@ struct
   let constr_of_cst_member f sk =
     match f with
     | Cst_const (c, u) -> mkConstU (c, EInstance.make u), sk
-    | Cst_proj p -> 
+    | Cst_proj p ->
       match decomp sk with
       | Some (hd, sk) -> mkProj (p, hd), sk
       | None -> assert false
@@ -982,7 +982,7 @@ struct
     check_carry env;
     mkApp ((if b then !cC1 else !cC0),[|!cint;e|])
 
-  let mkPair env e1 e2 =
+  let mkIntPair env e1 e2 =
     check_pair env;
     mkApp(!cPair, [|!cint;!cint;e1;e2|])
 
@@ -1123,9 +1123,9 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
         | Proj (p, c) when CClosure.RedFlags.red_projection flags p ->
       (let pb = lookup_projection p env in
        let kn = Projection.constant p in
-       let npars = pb.Declarations.proj_npars 
+       let npars = pb.Declarations.proj_npars
        and arg = pb.Declarations.proj_arg in
-	 if not tactic_mode then 
+         if not tactic_mode then
 	   let stack' = (c, Stack.Proj (npars, arg, p, Cst_stack.empty (*cst_l*)) :: stack) in
 	     whrec Cst_stack.empty stack'
 	 else match ReductionBehaviour.get (Globnames.ConstRef kn) with
@@ -1139,8 +1139,8 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 	       || (nargs > 0 && Stack.args_size stack < (nargs - (npars + 1))))
 	   then fold ()
 	   else
-	     let recargs = List.map_filter (fun x -> 
-	       let idx = x - npars in 
+             let recargs = List.map_filter (fun x ->
+               let idx = x - npars in
 		 if idx < 0 then None else Some idx) recargs
 	     in
 	       match recargs with
@@ -1149,15 +1149,15 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
                    (even when it hides a (co)fix) *)
 		 let stack' = (c, Stack.Proj (npars, arg, p, cst_l) :: stack) in
 		   whrec Cst_stack.empty(* cst_l *) stack'
-	       | curr::remains -> 
+               | curr::remains ->
 		 if curr == 0 then (* Try to reduce the record argument *)
-		   whrec Cst_stack.empty 
+                   whrec Cst_stack.empty
 		     (c, Stack.Cst(Stack.Cst_proj p,curr,remains,Stack.empty,cst_l)::stack)
 		 else
 		   match Stack.strip_n_app curr stack with
 		   | None -> fold ()
 		   | Some (bef,arg,s') ->
-		     whrec Cst_stack.empty 
+                     whrec Cst_stack.empty
 		       (arg,Stack.Cst(Stack.Cst_proj p,curr,remains,
 				      Stack.append_app [|c|] bef,cst_l)::s'))
 
@@ -1215,7 +1215,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 	|args, (Stack.Cst (const,curr,remains,s',cst_l) :: s'') ->
 	  let x' = Stack.zip sigma (x, args) in
 	  begin match remains with
-	  | [] -> 
+          | [] ->
 	    (match const with
 	    | Stack.Cst_const const ->
 	      (match constant_opt_value_in env const with
@@ -1317,7 +1317,7 @@ let local_whd_state_gen flags sigma =
 
     | Proj (p,c) when CClosure.RedFlags.red_projection flags p ->
       (let pb = lookup_projection p (Global.env ()) in
-	 whrec (c, Stack.Proj (pb.Declarations.proj_npars, pb.Declarations.proj_arg, 
+         whrec (c, Stack.Proj (pb.Declarations.proj_npars, pb.Declarations.proj_arg,
 			       p, Cst_stack.empty)
            :: stack))
 
@@ -1536,7 +1536,7 @@ let is_fconv ?(reds=full_transparent_state) = function
   | Reduction.CONV -> is_conv ~reds
   | Reduction.CUMUL -> is_conv_leq ~reds
 
-let check_conv ?(pb=Reduction.CUMUL) ?(ts=full_transparent_state) env sigma x y = 
+let check_conv ?(pb=Reduction.CUMUL) ?(ts=full_transparent_state) env sigma x y =
   let f = match pb with
     | Reduction.CONV -> f_conv
     | Reduction.CUMUL -> f_conv_leq
@@ -1563,7 +1563,7 @@ let sigma_check_inductive_instances csts sigma =
      | Univ.UniverseInconsistency _ ->
     raise Reduction.NotConvertible
 
-let sigma_univ_state = 
+let sigma_univ_state =
   let open Reduction in
   { compare_sorts = sigma_compare_sorts;
     compare_instances = sigma_compare_instances;
@@ -1573,9 +1573,9 @@ let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
     ?(ts=full_transparent_state) env sigma x y =
   (** FIXME *)
   try
-    let b, sigma = 
+    let b, sigma =
       let ans =
-	if pb == Reduction.CUMUL then 
+        if pb == Reduction.CUMUL then
 	  EConstr.leq_constr_universes sigma x y
 	else
 	  EConstr.eq_constr_universes sigma x y
@@ -1594,7 +1594,7 @@ let infer_conv_gen conv_fun ?(catch_incon=true) ?(pb=Reduction.CUMUL)
       else
         let x = EConstr.Unsafe.to_constr x in
         let y = EConstr.Unsafe.to_constr y in
-	let sigma' = 
+        let sigma' =
 	  conv_fun pb ~l2r:false sigma ts
 	    env (sigma, sigma_univ_state) x y in
 	  sigma', true
@@ -1748,7 +1748,7 @@ let splay_prod_assum env sigma =
 	prodec_rec (push_rel (LocalDef (x,b,t)) env)
 	  (Context.Rel.add (LocalDef (x,b,t)) l) c
     | Cast (c,_,_)    -> prodec_rec env l c
-    | _               -> 
+    | _               ->
       let t' = whd_all env sigma t in
 	if EConstr.eq_constr sigma t t' then l,t
 	else prodec_rec env l t'

@@ -343,7 +343,7 @@ module VNativeEntries =
       check_carry env;
       CONSTR((if b then !cC1 else !cC0), [|!vint;e|])
 
-    let mkPair env e1 e2 =
+    let mkIntPair env e1 e2 =
       check_pair env;
       CONSTR(!cPair, [|!vint;!vint;e1;e2|])
 

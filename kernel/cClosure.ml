@@ -1118,7 +1118,7 @@ module FNativeEntries =
       {norm = Cstr;
        term = FApp ((if b then !fC1 else !fC0),[|!fint;e|])}
 
-    let mkPair env e1 e2 =
+    let mkIntPair env e1 e2 =
       check_pair env;
       { norm = Cstr; term = FApp(!fPair, [|!fint;!fint;e1;e2|]) }
 

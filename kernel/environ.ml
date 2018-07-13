@@ -51,7 +51,7 @@ let empty_env = empty_env
 let engagement env = env.env_stratification.env_engagement
 let typing_flags env = env.env_typing_flags
 
-let is_impredicative_set env = 
+let is_impredicative_set env =
   match engagement env with
   | ImpredicativeSet -> true
   | _ -> false
@@ -181,7 +181,7 @@ let map_universes f env =
   let s = env.env_stratification in
     { env with env_stratification =
 	 { s with env_universes = f s.env_universes } }
-				     
+
 let add_constraints c env =
   if Univ.Constraint.is_empty c then env
   else map_universes (UGraph.merge_constraints c) env
@@ -199,7 +199,7 @@ let add_universes strict ctx g =
 	    g (Univ.Instance.to_array (Univ.UContext.instance ctx))
   in
     UGraph.merge_constraints (Univ.UContext.constraints ctx) g
-			   
+
 let push_context ?(strict=false) ctx env =
   map_universes (add_universes strict ctx) env
 
@@ -246,7 +246,7 @@ let constant_type env (kn,u) =
   let cb = lookup_constant kn env in
   match cb.const_universes with
   | Monomorphic_const _ -> cb.const_type, Univ.Constraint.empty
-  | Polymorphic_const ctx -> 
+  | Polymorphic_const ctx ->
     let csts = constraints_of cb u in
     (subst_instance_constr u cb.const_type, csts)
 
@@ -273,15 +273,15 @@ let constant_value_and_type env (kn, u) =
         | Undef _ | Primitive _ -> None
       in
 	b', subst_instance_constr u cb.const_type, cst
-    else 
+    else
       let b' = match cb.const_body with
 	| Def l_body -> Some (Mod_subst.force_constr l_body)
 	| OpaqueDef _ -> None
         | Undef _ | Primitive _ -> None
       in b', cb.const_type, Univ.Constraint.empty
 
-(* These functions should be called under the invariant that [env] 
-   already contains the constraints corresponding to the constant 
+(* These functions should be called under the invariant that [env]
+   already contains the constraints corresponding to the constant
    application. *)
 
 (* constant_type gives the type of a constant *)
@@ -294,7 +294,7 @@ let constant_type_in env (kn,u) =
 let constant_value_in env (kn,u) =
   let cb = lookup_constant kn env in
   match cb.const_body with
-    | Def l_body -> 
+    | Def l_body ->
       let b = Mod_subst.force_constr l_body in
 	subst_instance_constr u b
     | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
@@ -324,12 +324,12 @@ let type_in_type_constant cst env =
   not (lookup_constant cst env).const_typing_flags.check_universes
 
 let lookup_projection cst env =
-  match (lookup_constant (Projection.constant cst) env).const_proj with 
+  match (lookup_constant (Projection.constant cst) env).const_proj with
   | Some pb -> pb
   | None -> anomaly (Pp.str "lookup_projection: constant is not a projection.")
 
 let is_projection cst env =
-  match (lookup_constant cst env).const_proj with 
+  match (lookup_constant cst env).const_proj with
   | Some _ -> true
   | None -> false
 
@@ -347,14 +347,14 @@ let type_in_type_ind (mind,i) env =
   not (lookup_mind mind env).mind_typing_flags.check_universes
 
 let template_polymorphic_ind (mind,i) env =
-  match (lookup_mind mind env).mind_packets.(i).mind_arity with 
+  match (lookup_mind mind env).mind_packets.(i).mind_arity with
   | TemplateArity _ -> true
   | RegularArity _ -> false
 
 let template_polymorphic_pind (ind,u) env =
   if not (Univ.Instance.is_empty u) then false
   else template_polymorphic_ind ind env
-  
+
 let add_mind_key kn mind_key env =
   let new_inds = Mindmap_env.add kn mind_key env.env_globals.env_inductives in
   let new_globals =
@@ -448,7 +448,7 @@ let lookup_module mp env =
     MPmap.find mp env.env_globals.env_modules
 
 
-let lookup_modtype mp env = 
+let lookup_modtype mp env =
   MPmap.find mp env.env_globals.env_modtypes
 
 (*s Judgments. *)
@@ -584,7 +584,7 @@ module type RedNativeEntries =
     val mkInt : env -> Uint63.t -> elem
     val mkBool : env -> bool -> elem
     val mkCarry : env -> bool -> elem -> elem (* true if carry *)
-    val mkPair : env -> elem -> elem -> elem
+    val mkIntPair : env -> elem -> elem -> elem
     val mkLt : env -> elem
     val mkEq : env -> elem
     val mkGt : env -> elem
@@ -664,15 +664,15 @@ struct
     | Int63mulc       ->
       let i1, i2 = get_int2 args in
       let (h, l) = Uint63.mulc i1 i2 in
-      E.mkPair env (E.mkInt env h) (E.mkInt env l)
+      E.mkIntPair env (E.mkInt env h) (E.mkInt env l)
     | Int63diveucl    ->
       let i1, i2 = get_int2 args in
       let q,r = Uint63.div i1 i2, Uint63.rem i1 i2 in
-      E.mkPair env (E.mkInt env q) (E.mkInt env r)
+      E.mkIntPair env (E.mkInt env q) (E.mkInt env r)
     | Int63div21      ->
       let i1, i2, i3 = get_int3 args in
       let q,r = Uint63.div21 i1 i2 i3 in
-      E.mkPair env (E.mkInt env q) (E.mkInt env r)
+      E.mkIntPair env (E.mkInt env q) (E.mkInt env r)
     | Int63addMulDiv  ->
       let p, i, j = get_int3 args in
       E.mkInt env
