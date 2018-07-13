@@ -357,6 +357,7 @@ and fterm =
   | FLetIn of Name.t Context.binder_annot * fconstr * fconstr * constr * fconstr subs
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
+  | FFloat of Float64.t
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
@@ -437,7 +438,7 @@ let rec stack_args_size = function
 let rec lft_fconstr n ft =
   let r = Mark.relevance ft.mark in
   match ft.term with
-    | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)|FInt _) -> ft
+    | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)|FInt _|FFloat _) -> ft
     | FRel i -> {mark=mark Norm r;term=FRel(i+n)}
     | FLambda(k,tys,f,e) -> {mark=mark Cstr r; term=FLambda(k,tys,f,subs_shft(n,e))}
     | FFix(fx,e) ->
@@ -508,6 +509,7 @@ let mk_clos e t =
     | Ind kn -> {mark = mark Norm KnownR; term = FInd kn }
     | Construct kn -> {mark = mark Cstr Unknown; term = FConstruct kn }
     | Int i -> {mark = mark Cstr Unknown; term = FInt i}
+    | Float f -> {mark = mark Cstr Unknown; term = FFloat f}
     | (CoFix _|Lambda _|Fix _|Prod _|Evar _|App _|Case _|Cast _|LetIn _|Proj _) ->
         {mark = mark Red Unknown; term = FCLOS(t,e)}
 
@@ -625,6 +627,8 @@ let rec to_constr lfts v =
 
     | FInt i ->
        Constr.mkInt i
+    | FFloat f ->
+        Constr.mkFloat f
 
     | FCLOS (t,env) ->
       if is_subs_id env && is_lift_id lfts then t
@@ -935,7 +939,7 @@ let rec knh info m stk =
 
 (* cases where knh stops *)
     | (FFlex _|FLetIn _|FConstruct _|FEvar _|
-       FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _|FInt _) ->
+       FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _|FInt _|FFloat _) ->
         (m, stk)
 
 (* The same for pure terms *)
@@ -949,7 +953,7 @@ and knht info e t stk =
     | Cast(a,_,_) -> knht info e a stk
     | Rel n -> knh info (clos_rel e n) stk
     | Proj (p, c) -> knh info { mark = mark Red Unknown; term = FProj (p, mk_clos e c) } stk
-    | (Ind _|Const _|Construct _|Var _|Meta _ | Sort _ | Int _) -> (mk_clos e t, stk)
+    | (Ind _|Const _|Construct _|Var _|Meta _ | Sort _ | Int _|Float _) -> (mk_clos e t, stk)
     | CoFix cfx -> { mark = mark Cstr Unknown; term = FCoFix (cfx,e) }, stk
     | Lambda _ -> { mark = mark Cstr Unknown; term = mk_lambda e t }, stk
     | Prod (n, t, c) ->
@@ -978,6 +982,11 @@ module FNativeEntries =
       | FInt i -> i
       | _ -> raise Primred.NativeDestKO
 
+    let get_float () e =
+      match [@ocaml.warning "-4"] e.term with
+      | FFloat f -> f
+      | _ -> raise Primred.NativeDestKO
+
     let dummy = {mark = mark Norm KnownR; term = FRel 0}
 
     let current_retro = ref Retroknowledge.empty
@@ -990,6 +999,16 @@ module FNativeEntries =
         defined_int := true;
         fint := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
       | None -> defined_int := false
+
+    let defined_float = ref false
+    let ffloat = ref dummy
+
+    let init_float retro =
+      match retro.Retroknowledge.retro_float64 with
+      | Some c ->
+        defined_float := true;
+        ffloat := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
+      | None -> defined_float := false
 
     let defined_bool = ref false
     let ftrue = ref dummy
@@ -1029,6 +1048,7 @@ module FNativeEntries =
     let fEq = ref dummy
     let fLt = ref dummy
     let fGt = ref dummy
+    let fcmp = ref dummy
 
     let init_cmp retro =
       match retro.Retroknowledge.retro_cmp with
@@ -1036,8 +1056,22 @@ module FNativeEntries =
         defined_cmp := true;
         fEq := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cEq) };
         fLt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cLt) };
-        fGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cGt) }
+        fGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cGt) };
+        let (icmp, _) = cEq in
+        fcmp := { mark = mark Norm KnownR; term = FInd (Univ.in_punivs icmp) }
       | None -> defined_cmp := false
+
+    let defined_option = ref false
+    let fSome = ref dummy
+    let fNone = ref dummy
+
+    let init_option retro =
+      match retro.Retroknowledge.retro_option with
+      | Some (cSome, cNone) ->
+        defined_option := true;
+        fSome := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cSome) };
+        fNone := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNone) }
+      | None -> defined_option := false
 
     let defined_refl = ref false
 
@@ -1053,10 +1087,12 @@ module FNativeEntries =
     let init env =
       current_retro := env.retroknowledge;
       init_int !current_retro;
+      init_float !current_retro;
       init_bool !current_retro;
       init_carry !current_retro;
       init_pair !current_retro;
       init_cmp !current_retro;
+      init_option !current_retro;
       init_refl !current_retro
 
     let check_env env =
@@ -1065,6 +1101,10 @@ module FNativeEntries =
     let check_int env =
       check_env env;
       assert (!defined_int)
+
+    let check_float env =
+      check_env env;
+      assert (!defined_float)
 
     let check_bool env =
       check_env env;
@@ -1082,9 +1122,17 @@ module FNativeEntries =
       check_env env;
       assert (!defined_cmp)
 
+    let check_option env =
+      check_env env;
+      assert (!defined_option)
+
     let mkInt env i =
       check_int env;
       { mark = mark Norm KnownR; term = FInt i }
+
+    let mkFloat env f =
+      check_float env;
+      { mark = mark Norm KnownR; term = FFloat f }
 
     let mkBool env b =
       check_bool env;
@@ -1099,6 +1147,11 @@ module FNativeEntries =
       check_pair env;
       { mark = mark Cstr KnownR; term = FApp(!fPair, [|!fint;!fint;e1;e2|]) }
 
+    let mkFloatIntPair env f i =
+      check_pair env;
+      check_float env;
+      { mark = mark Cstr KnownR; term = FApp(!fPair, [|!ffloat;!fint;f;i|]) }
+
     let mkLt env =
       check_cmp env;
       !fLt
@@ -1111,6 +1164,15 @@ module FNativeEntries =
       check_cmp env;
       !fGt
 
+    let mkSomeCmp env v =
+      check_cmp env;
+      check_option env;
+      { mark = mark Cstr KnownR; term = FApp(!fSome, [|!fcmp;v|]) }
+
+    let mkNoneCmp env =
+      check_cmp env;
+      check_option env;
+      { mark = mark Cstr KnownR; term = FApp(!fNone, [|!fcmp|]) }
   end
 
 module FredNative = RedNative(FNativeEntries)
@@ -1173,7 +1235,7 @@ let rec knr info tab m stk =
       (match info.i_cache.i_sigma ev with
           Some c -> knit info tab env c stk
         | None -> (m,stk))
-  | FInt _ ->
+  | FInt _ | FFloat _ ->
     (match [@ocaml.warning "-4"] strip_update_shift_app m stk with
      | (_, _, Zprimitive(op,c,rargs,nargs)::s) ->
        let (rargs, nargs) = skip_native_args (m::rargs) nargs in
@@ -1279,7 +1341,7 @@ and norm_head info tab m =
       | FProj (p,c) ->
           mkProj (p, kl info tab c)
       | FLOCKED | FRel _ | FAtom _ | FFlex _ | FInd _ | FConstruct _
-        | FApp _ | FCaseT _ | FLIFT _ | FCLOS _ | FInt _ -> term_of_fconstr m
+        | FApp _ | FCaseT _ | FLIFT _ | FCLOS _ | FInt _ | FFloat _ -> term_of_fconstr m
 
 (* Initialization and then normalization *)
 

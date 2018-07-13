@@ -352,7 +352,7 @@ let rec extract_type env sg db j c args =
             | (Info, TypeScheme) ->
               extract_type_app env sg db (r, type_sign env sg ty) args
             | (Info, Default) -> Tunknown))
-    | Cast _ | LetIn _ | Construct _ | Int _ -> assert false
+    | Cast _ | LetIn _ | Construct _ | Int _ | Float _ -> assert false
 
 (*s Auxiliary function dealing with type application.
   Precondition: [r] is a type scheme represented by the signature [s],
@@ -691,6 +691,7 @@ let rec extract_term env sg mle mlt c args =
        let extract_var mlt = put_magic (mlt,vty) (MLglob (VarRef v)) in
        extract_app env sg mle mlt extract_var args
     | Int i -> assert (args = []); MLuint i
+    | Float _ -> assert false (* TODO: Implement primitive float for extraction *)
     | Ind _ | Prod _ | Sort _ -> assert false
 
 (*s [extract_maybe_term] is [extract_term] for usual terms, else [MLdummy] *)
