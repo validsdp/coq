@@ -53,12 +53,16 @@ let frshiftexp f =
 
 let ldshiftexp f e = ldexp f (snd (Uint63.to_int2 e) - eshift)
 
-(* FIXME: Sign of 0 is ignored for equal, hash and total_compare *)
-
-let equal f1 f2 = (f1 = f2) || (is_nan f1 && is_nan f2)
+let equal f1 f2 =
+  match classify_float f1 with
+  | FP_normal | FP_subnormal | FP_infinite -> (f1 = f2)
+  | FP_nan -> is_nan f2
+  | FP_zero -> f1 = f2 && 1. /. f1 = 1. /. f2 (* OCaml consider 0. = -0. *)
 
 let hash f =
   let f = if is_nan f then nan else f in (* Consider all NaNs are equal *)
-  Hashtbl.hash f (* TODO: Consider hashing in a more predictable way *)
+  Hashtbl.hash f
 
-let total_compare = Pervasives.compare
+let total_compare f1 f2 =
+  if f1 = 0. && f2 = 0. then Pervasives.compare (1. /. f1) (1. /. f2)
+  else Pervasives.compare f1 f2
