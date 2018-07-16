@@ -149,11 +149,11 @@ let kind = function
 
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
 
-  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63 | Float64toInt63
   | Float64frshiftexp -> [Kwhnf]
 
   | Float64compare | Float64add | Float64sub | Float64mul
-  | Float64div | Float64sqrt | Float64ldshiftexp -> [Kwhnf;Kwhnf]
+  | Float64div | Float64ldshiftexp -> [Kwhnf;Kwhnf]
 
 let arity = function
   | Int63head0 | Int63tail0 -> 1
