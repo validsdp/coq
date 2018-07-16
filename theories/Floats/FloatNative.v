@@ -1,3 +1,4 @@
+Require Import ZArith. (* TODO remove? only used in frexp *)
 Require Import Int63.
 
 Register Inductive option as ind_option.
@@ -41,8 +42,6 @@ Definition one := Eval compute in (of_int63 1).
 Definition infinity := Eval compute in (one / zero).
 Definition neg_infinity := Eval compute in (-infinity).
 Definition nan := Eval compute in (zero / zero).
-Definition two := Eval compute in one + one.
-Definition half := Eval compute in one / two.
 
 Definition is_nan f :=
   match f ?= f with
@@ -73,9 +72,12 @@ Definition get_sign f := (* + => false, - => true *)
   | _ => true
   end.
 
-Definition prec_bin := 52%int63.
-Definition shift := (1022 + prec_bin)%int63.
+Definition shift := (1022 + 52)%int63.
 Primitive frshiftexp := #float64_frshiftexp.
 Primitive ldshiftexp := #float64_ldshiftexp.
 
-(*Axiom frshiftexp_spec : forall f, is_nan f = false -> is_zero f = false -> is_infinity f = false -> let (m, se) := frshiftexp f in (f ?= half = Some Gt \/ f ?= half = Some Eq) /\ f ?= one = Some Lt /\ ldshiftexp m se = f *)
+Definition frexp f :=
+  let (m, se) := frshiftexp f in
+  (m, ([| se |] - [| shift |])%Z%int63).
+
+Definition ldexp f e := ldshiftexp f (of_Z e + shift).

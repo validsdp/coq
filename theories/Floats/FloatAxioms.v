@@ -17,9 +17,9 @@ Definition Prim2EF f :=
   else if is_zero f then E754_zero (get_sign f)
        else if is_infinity f then E754_infinity (get_sign f)
             else
-              let (r, shiftexp) := frshiftexp f in
-              let m := ldshiftexp r ((of_Z prec)+shift) in
-              let e := ([| shiftexp |]%int63 - prec - [| shift |]%int63)%Z in
+              let (r, exp) := frexp f in
+              let m := ldexp r prec in
+              let e := (exp - prec)%Z in
               match [| to_int63 m |]%int63 with
               | Zpos p => E754_finite false p e
               | Zneg p => E754_finite true p e
@@ -35,7 +35,7 @@ Definition EF2Prim ef :=
   | E754_infinity true => neg_infinity
   | E754_finite s m e =>
     let pm := of_int63 (of_Z (Zpos m)) in
-    let f := ldshiftexp pm ((of_Z e)+shift) in
+    let f := ldexp pm e in
     if s then (-f)%float else f
   end.
 
