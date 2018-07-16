@@ -181,11 +181,11 @@ let operation_kind = function
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
   | Int63eqb_correct -> [Karg;Karg;Kwhnf]
 
-  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63 | Float64toInt63
   | Float64frshiftexp -> [Kwhnf]
 
   | Float64compare | Float64add | Float64sub | Float64mul
-  | Float64div | Float64sqrt | Float64ldshiftexp -> [Kwhnf;Kwhnf]
+  | Float64div | Float64ldshiftexp -> [Kwhnf;Kwhnf]
 
 let kind = function
   | Operation op -> operation_kind op
@@ -207,11 +207,11 @@ let operation_arity = function
   | Int63div21 | Int63addMulDiv -> (0,3)
   | Int63eqb_correct -> (0,3)
 
-  | Float64opp | Float64abs | Float64ofInt63 | Float64toInt63
+  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63 | Float64toInt63
   | Float64frshiftexp -> (0,1)
 
   | Float64compare | Float64add | Float64sub | Float64mul
-  | Float64div | Float64sqrt | Float64ldshiftexp -> (0,2)
+  | Float64div | Float64ldshiftexp -> (0,2)
 
 let arity = function
   | Operation op -> operation_arity op
