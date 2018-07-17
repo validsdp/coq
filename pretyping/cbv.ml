@@ -203,8 +203,8 @@ module VNativeEntries =
       | VAL(_, ci) ->
           (match kind ci with
           | Int i -> i
-          | _ -> raise Not_found)
-      | _ -> raise Not_found
+          | _ -> raise Environ.NativeDestKO)
+      | _ -> raise Environ.NativeDestKO
 
     let dummy = VAL (0,mkRel 0)
 

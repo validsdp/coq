@@ -852,7 +852,7 @@ struct
   let get_int e =
     match Constr.kind (EConstr.Unsafe.to_constr (* FIXME *) e) with
     | Int i -> i
-    | _ -> raise Not_found
+    | _ -> raise NativeDestKO
 
   let dummy = mkRel 0
   let current_retro = ref Retroknowledge.empty

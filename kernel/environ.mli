@@ -279,6 +279,8 @@ val no_link_info : Pre_env.link_info
 val retroknowledge : env -> Retroknowledge.retroknowledge
 val add_retroknowledge : env -> Retroknowledge.action * constr -> env
 
+exception NativeDestKO (* Should be raised by get_* functions on failure *)
+
 module type RedNativeEntries =
   sig
     type elem

@@ -969,7 +969,6 @@ and knht info e t stk =
 
 module FNativeEntries =
   struct
-
     type elem = fconstr
     type args = fconstr array
 
@@ -978,7 +977,7 @@ module FNativeEntries =
     let get_int e =
       match e.term with
       | FInt i -> i
-      | _ -> raise Not_found
+      | _ -> raise NativeDestKO
 
     let dummy = {norm = Norm; term = FRel 0}
 
