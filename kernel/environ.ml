@@ -585,6 +585,8 @@ let add_retroknowledge env (pt,c) =
         env_constants = new_constants } in
     { env with env_globals = new_globals }
 
+exception NativeDestKO
+
 module type RedNativeEntries =
   sig
     type elem
@@ -850,11 +852,13 @@ struct
             E.mkClos name typ body subst
 
   let red_prim env p f args =
-    let r =
-      match p with
-      | Iterator it -> red_iterator env it f args
-      | Operation op -> red_op env op args
-    in Some r
+    try
+      let r =
+        match p with
+        | Iterator it -> red_iterator env it f args
+        | Operation op -> red_op env op args
+      in Some r
+    with NativeDestKO -> None
 
 end
 

@@ -847,19 +847,17 @@ struct
   type elem = EConstr.t
   type args = EConstr.t array
 
-  exception CNativeDestrFail
-
   let get = Array.get
 
   let get_int e =
     match Constr.kind (EConstr.Unsafe.to_constr (* FIXME *) e) with
     | Int i -> i
-    | _ -> raise CNativeDestrFail
+    | _ -> raise NativeDestKO
 
   let get_float e =
     match Constr.kind (EConstr.Unsafe.to_constr e) with
     | Float f -> f
-    | _ -> raise CNativeDestrFail
+    | _ -> raise NativeDestKO
 
   let dummy = mkRel 0
   let current_retro = ref Retroknowledge.empty

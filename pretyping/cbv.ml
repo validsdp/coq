@@ -196,25 +196,23 @@ module VNativeEntries =
     type elem = cbv_value
     type args = cbv_value array
 
-    exception VNativeDestrFail
-
     let get = Array.get
 
     let get_int e =
       match e with
       | VAL(_, ci) ->
-          (match kind ci with
-          | Int i -> i
-          | _ -> raise VNativeDestrFail)
-      | _ -> raise VNativeDestrFail
+        (match kind ci with
+        | Int i -> i
+        | _ -> raise Environ.NativeDestKO)
+      | _ -> raise Environ.NativeDestKO
 
     let get_float e =
       match e with
       | VAL(_, cf) ->
         (match kind cf with
         | Float f -> f
-        | _ -> raise VNativeDestrFail)
-      | _ -> raise VNativeDestrFail
+        | _ -> raise Environ.NativeDestKO)
+      | _ -> raise Environ.NativeDestKO
 
     let dummy = VAL (0,mkRel 0)
 
