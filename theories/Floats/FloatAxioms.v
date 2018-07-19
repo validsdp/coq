@@ -18,12 +18,10 @@ Definition Prim2EF f :=
        else if is_infinity f then E754_infinity (get_sign f)
             else
               let (r, exp) := frexp f in
-              let m := ldexp r prec in
               let e := (exp - prec)%Z in
-              match [| to_int63 m |]%int63 with
-              | Zpos p => E754_finite false p e
-              | Zneg p => E754_finite true p e
-              | Z0 => E754_zero false
+              match [| normfr_mantissa r |]%int63 with
+              | Zpos p => E754_finite (get_sign f) p e
+              | Zneg _ | Z0 => E754_zero false (* must never occur *)
               end.
 
 Definition EF2Prim ef :=

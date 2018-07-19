@@ -43,7 +43,7 @@ type operation =
   | Float64div
   | Float64sqrt
   | Float64ofInt63
-  | Float64toInt63
+  | Float64normfr_mantissa
   | Float64frshiftexp
   | Float64ldshiftexp
 
@@ -93,7 +93,7 @@ let hash_operation = function
   | Float64div -> 32
   | Float64sqrt -> 33
   | Float64ofInt63 -> 34
-  | Float64toInt63 -> 35
+  | Float64normfr_mantissa -> 35
   | Float64frshiftexp -> 36
   | Float64ldshiftexp -> 37
 
@@ -143,7 +143,7 @@ let operation_to_string = function
   | Float64div     -> "fdiv"
   | Float64sqrt    -> "fsqrt"
   | Float64ofInt63 -> "float_of_int"
-  | Float64toInt63 -> "float_to_int"
+  | Float64normfr_mantissa -> "normfr_mantissa"
   | Float64frshiftexp -> "frshiftexp"
   | Float64ldshiftexp -> "ldshiftexp"
 
@@ -181,8 +181,8 @@ let operation_kind = function
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
   | Int63eqb_correct -> [Karg;Karg;Kwhnf]
 
-  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63 | Float64toInt63
-  | Float64frshiftexp -> [Kwhnf]
+  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63
+  | Float64normfr_mantissa | Float64frshiftexp -> [Kwhnf]
 
   | Float64compare | Float64add | Float64sub | Float64mul
   | Float64div | Float64ldshiftexp -> [Kwhnf;Kwhnf]
@@ -207,8 +207,8 @@ let operation_arity = function
   | Int63div21 | Int63addMulDiv -> (0,3)
   | Int63eqb_correct -> (0,3)
 
-  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63 | Float64toInt63
-  | Float64frshiftexp -> (0,1)
+  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63
+  | Float64normfr_mantissa | Float64frshiftexp -> (0,1)
 
   | Float64compare | Float64add | Float64sub | Float64mul
   | Float64div | Float64ldshiftexp -> (0,2)

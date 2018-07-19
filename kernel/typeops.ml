@@ -663,7 +663,7 @@ let typeof_prim env op =
       let i = type_of_int env in
       let f = type_of_float env in
       mkArrow i f
-  | Float64toInt63 ->
+  | Float64normfr_mantissa ->
       let i = type_of_int env in
       let f = type_of_float env in
       mkArrow f i

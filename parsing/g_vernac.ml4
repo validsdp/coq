@@ -286,7 +286,7 @@ GEXTEND Gram
       | "float64_div" -> CPrimitives.Operation CPrimitives.Float64div
       | "float64_sqrt" -> CPrimitives.Operation CPrimitives.Float64sqrt
       | "float64_of_int63" -> CPrimitives.Operation CPrimitives.Float64ofInt63
-      | "float64_to_int63" -> CPrimitives.Operation CPrimitives.Float64toInt63
+      | "float64_normfr_mantissa" -> CPrimitives.Operation CPrimitives.Float64normfr_mantissa
       | "float64_frshiftexp" -> CPrimitives.Operation CPrimitives.Float64frshiftexp
       | "float64_ldshiftexp" -> CPrimitives.Operation CPrimitives.Float64ldshiftexp ] ]
     ;

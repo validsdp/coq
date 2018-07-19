@@ -14,6 +14,8 @@
 #include <caml/alloc.h>
 #include <caml/mlvalues.h>
 
+#include <float.h>
+
 #define Default_tag 0
 #define Accu_tag 0
 
