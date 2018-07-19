@@ -34,7 +34,7 @@ Primitive sqrt := #float64_sqrt.
 Primitive of_int63 := #float64_of_int63.
 
 (* If the input is a float value with an absolute value
- * inside ]1.;0.5] then return its mantissa as a primitive integer.
+ * inside [0.5; 1.) then return its mantissa as a primitive integer.
  * The mantissa will be a 53-bit integer with its most significant bit set to 1.
  * Else return zero.
  * The sign bit is always ignored. *)

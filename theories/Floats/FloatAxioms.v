@@ -19,8 +19,9 @@ Definition Prim2EF f :=
             else
               let (r, exp) := frexp f in
               let e := (exp - prec)%Z in
-              match [| normfr_mantissa r |]%int63 with
-              | Zpos p => E754_finite (get_sign f) p e
+              let (shr, e') := shr_fexp prec emax [| normfr_mantissa r |]%int63 e loc_Exact in
+              match shr_m shr with
+              | Zpos p => E754_finite (get_sign f) p e'
               | Zneg _ | Z0 => E754_zero false (* must never occur *)
               end.
 
