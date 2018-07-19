@@ -121,3 +121,6 @@ value uint63_div21(value xh, value xl, value y, value* q) {
   *q = Val_int(quotient);
   return Val_int(reml);
 }
+
+#define uint63_to_double(val) ((double) uint63_of_value(val))
+#define uint63_of_double(f) (Val_long((long int) f))

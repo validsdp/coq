@@ -16,11 +16,12 @@
 #include <stdio.h>
 #include <signal.h>
 #include <stdint.h>
+#include <math.h>
 #include "coq_gc.h"
 #include "coq_instruct.h"
 #include "coq_fix_code.h"
-#include "coq_memory.h" 
-#include "coq_values.h" 
+#include "coq_memory.h"
+#include "coq_values.h"
 
 #ifdef ARCH_SIXTYFOUR
 #include "coq_uint63_native.h"
@@ -53,7 +54,7 @@ sp is a local copy of the global variable extern_sp. */
 
 
 #ifdef THREADED_CODE
-#  define Instruct(name) coq_lbl_##name: 
+#  define Instruct(name) coq_lbl_##name:
 #  if defined(ARCH_SIXTYFOUR) && !defined(ARCH_CODE32)
 #    define coq_Jumptbl_base ((char *) &&coq_lbl_ACC0)
 #  else
@@ -63,22 +64,22 @@ sp is a local copy of the global variable extern_sp. */
 #  ifdef DEBUG
 #    define Next goto next_instr
 #  else
-#    define Next goto *(void *)(coq_jumptbl_base + *pc++)  
+#    define Next goto *(void *)(coq_jumptbl_base + *pc++)
 #  endif
-#else 
+#else
 #  define Instruct(name) case name:
 #  define Next break
-#endif 
+#endif
 
 /* #define _COQ_DEBUG_ */
 
-#ifdef _COQ_DEBUG_ 
+#ifdef _COQ_DEBUG_
 #   define print_instr(s) /*if (drawinstr)*/ printf("%s\n",s)
 #   define print_int(i)   /*if (drawinstr)*/ printf("%d\n",i)
 #   define print_lint(i)  /*if (drawinstr)*/ printf("%ld\n",i)
-# else 
-#   define print_instr(s) 
-#   define print_int(i) 
+# else
+#   define print_instr(s)
+#   define print_int(i)
 #   define print_lint(i)
 #endif
 
@@ -99,7 +100,7 @@ if (sp - num_args < coq_stack_threshold) {                                     \
    Some compilers underestimate the use of the local variables representing
    the abstract machine registers, and don't put them in hardware registers,
    which slows down the interpreter considerably.
-   For GCC, Xavier Leroy have hand-assigned hardware registers for 
+   For GCC, Xavier Leroy have hand-assigned hardware registers for
    several architectures.
 */
 
@@ -160,34 +161,21 @@ if (sp - num_args < coq_stack_threshold) {                                     \
 #endif
 #endif
 
-#define CheckInt1() do{                            \
-    if (Is_uint63(accu)) pc++;			   \
-    else{					   \
-      *--sp=accu;				   \
-      accu = Field(coq_global_data, *pc++);	   \
-      goto apply1;				   \
-    }						   \
+#define CheckPrimArgs(cond, apply_lbl) do{          \
+    if (cond) pc++;                             \
+    else{                                       \
+      *--sp = accu;                             \
+      accu = Field(coq_global_data, *pc++);     \
+      goto apply_lbl;                           \
+    }                                           \
   }while(0)
 
-#define CheckInt2() do{    			   \
-    if (Is_uint63(accu) && Is_uint63(sp[0])) pc++;	   \
-    else{					   \
-      *--sp=accu;				   \
-      accu = Field(coq_global_data, *pc++);	   \
-      goto apply2;				   \
-    }						   \
-  }while(0)
-
-
-
-#define CheckInt3() do{						      \
-    if (Is_uint63(accu) && Is_uint63(sp[0]) && Is_uint63(sp[1]) ) pc++;     \
-    else{							      \
-      *--sp=accu;						      \
-      accu = Field(coq_global_data, *pc++);			      \
-      goto apply3;						      \
-    }								      \
-  }while(0)
+#define CheckInt1() CheckPrimArgs(Is_uint63(accu), apply1)
+#define CheckInt2() CheckPrimArgs(Is_uint63(accu) && Is_uint63(sp[0]), apply2)
+#define CheckInt3() CheckPrimArgs(Is_uint63(accu) && Is_uint63(sp[0]) \
+                                                  && Is_uint63(sp[1]), apply3)
+#define CheckFloat1() CheckPrimArgs(Is_double(accu), apply1)
+#define CheckFloat2() CheckPrimArgs(Is_double(accu) && Is_double(sp[0]), apply2)
 
 #define AllocCarry(cond) Alloc_small(accu, 1, (cond)? coq_tag_C1 : coq_tag_C0)
 #define AllocPair() Alloc_small(accu, 2, coq_tag_pair)
@@ -224,7 +212,7 @@ value coq_interprete
   static void * coq_jumptable[] = {
 #    include "coq_jumptbl.h"
   };
-#else 
+#else
   opcode_t curr_instr;
 #endif
   print_instr("Enter Interpreter");
@@ -255,7 +243,7 @@ value coq_interprete
     switch(curr_instr) {
 #endif
 /* Basic stack operations */
-      
+
       Instruct(ACC0){
 	print_instr("ACC0");
 	accu = sp[0]; Next;
@@ -287,7 +275,7 @@ value coq_interprete
       Instruct(ACC7){
 	print_instr("ACC7");
         accu = sp[7]; Next;
-      }      
+      }
       Instruct(PUSH){
 	print_instr("PUSH");
 	*--sp = accu; Next;
@@ -329,20 +317,20 @@ value coq_interprete
 	*--sp = accu;
       }
       /* Fallthrough */
-      
+
       Instruct(ACC){
 	print_instr("ACC");
 	accu = sp[*pc++];
         Next;
       }
-      
+
       Instruct(POP){
 	print_instr("POP");
 	sp += *pc++;
 	Next;
       }
       /* Access in heap-allocated environment */
-      
+
       Instruct(ENVACC1){
 	print_instr("ENVACC1");
 	accu = Field(coq_env, 1); Next;
@@ -387,7 +375,7 @@ value coq_interprete
         Next;
       }
       /* Function application */
-      
+
       Instruct(PUSH_RETADDR) {
 	print_instr("PUSH_RETADDR");
 	sp -= 3;
@@ -487,7 +475,7 @@ value coq_interprete
       }
 
      /* Stack checks */
-      
+
     check_stack:
       print_instr("check_stack");
       CHECK_STACK(0);
@@ -561,7 +549,7 @@ value coq_interprete
 	coq_extra_args += 2;
 	goto check_stack;
       }
-      
+
       Instruct(RETURN) {
 	print_instr("RETURN");
 	print_int(*pc);
@@ -585,7 +573,7 @@ value coq_interprete
 	}
 	Next;
       }
-      
+
       Instruct(RESTART) {
 	int num_args = Wosize_val(coq_env) - 2;
 	int i;
@@ -597,7 +585,7 @@ value coq_interprete
 	coq_extra_args += num_args;
 	Next;
       }
-      
+
       Instruct(GRAB) {
 	int required = *pc++;
 	print_instr("GRAB");
@@ -607,7 +595,7 @@ value coq_interprete
 	} else {
 	  mlsize_t num_args, i;
 	  num_args = 1 + coq_extra_args; /* arg1 + extra args */
-          Alloc_small(accu, num_args + 2, Closure_tag); 
+          Alloc_small(accu, num_args + 2, Closure_tag);
 	  Field(accu, 1) = coq_env;
 	  for (i = 0; i < num_args; i++) Field(accu, i + 2) = sp[i];
 	  Code_val(accu) = pc - 3; /* Point to the preceding RESTART instr. */
@@ -620,7 +608,7 @@ value coq_interprete
 	Next;
       }
 
-      Instruct(GRABREC) { 
+      Instruct(GRABREC) {
 	int rec_pos = *pc++; /* commence a zero */
 	print_instr("GRABREC");
 	if (rec_pos <= coq_extra_args && !Is_accu(sp[rec_pos])) {
@@ -630,10 +618,10 @@ value coq_interprete
             /* Partial application */
 	    mlsize_t num_args, i;
 	    num_args = 1 + coq_extra_args; /* arg1 + extra args */
-	    Alloc_small(accu, num_args + 2, Closure_tag); 
+            Alloc_small(accu, num_args + 2, Closure_tag);
 	    Field(accu, 1) = coq_env;
 	    for (i = 0; i < num_args; i++) Field(accu, i + 2) = sp[i];
-	    Code_val(accu) = pc - 3; 
+            Code_val(accu) = pc - 3;
 	    sp += num_args;
 	    pc = (code_t)(sp[0]);
 	    coq_env = sp[1];
@@ -643,7 +631,7 @@ value coq_interprete
 	    /* The recursif argument is an accumulator */
 	    mlsize_t num_args, i;
 	    /* Construction of fixpoint applied to its [rec_pos-1] first arguments */
-	    Alloc_small(accu, rec_pos + 2, Closure_tag); 
+            Alloc_small(accu, rec_pos + 2, Closure_tag);
 	    Field(accu, 1) = coq_env; // We store the fixpoint in the first field
 	    for (i = 0; i < rec_pos; i++) Field(accu, i + 2) = sp[i]; // Storing args
 	    Code_val(accu) = pc;
@@ -669,7 +657,7 @@ value coq_interprete
 	}
 	Next;
       }
-	
+
       Instruct(CLOSURE) {
 	int nvars = *pc++;
 	int i;
@@ -723,7 +711,7 @@ value coq_interprete
 	Next;
       }
 
-      Instruct(CLOSURECOFIX){ 
+      Instruct(CLOSURECOFIX){
 	int nfunc = *pc++;
 	int nvars = *pc++;
 	int start = *pc++;
@@ -774,7 +762,7 @@ value coq_interprete
 	Next;
       }
 
-    
+
       Instruct(PUSHOFFSETCLOSURE) {
 	print_instr("PUSHOFFSETCLOSURE");
 	*--sp = accu;
@@ -793,7 +781,7 @@ value coq_interprete
       }
       Instruct(PUSHOFFSETCLOSURE0) {
 	print_instr("PUSHOFFSETCLOSURE0");
-	*--sp = accu; 
+        *--sp = accu;
       }/* fallthrough */
       Instruct(OFFSETCLOSURE0) {
 	print_instr("OFFSETCLOSURE0");
@@ -821,7 +809,7 @@ value coq_interprete
 	accu = Field(coq_global_data, *pc);
         pc++;
         Next;
-      }    
+      }
 
 /* Allocation of blocks */
 
@@ -838,7 +826,7 @@ value coq_interprete
 	Next;
       }
       Instruct(MAKEBLOCK1) {
-	
+
 	tag_t tag = *pc++;
 	value block;
 	print_instr("MAKEBLOCK1, tag=");
@@ -849,7 +837,7 @@ value coq_interprete
 	Next;
       }
       Instruct(MAKEBLOCK2) {
-	
+
 	tag_t tag = *pc++;
 	value block;
 	print_instr("MAKEBLOCK2, tag=");
@@ -889,9 +877,9 @@ value coq_interprete
 	Next;
       }
 
-  
+
 /* Access to components of blocks */
-        
+
       Instruct(SWITCH) {
 	uint32_t sizes = *pc++;
 	print_instr("SWITCH");
@@ -918,10 +906,10 @@ value coq_interprete
 	for(i=0;i<size;i++)sp[i] = Field(accu,i);
 	Next;
       }
-      
+
       Instruct(GETFIELD0){
 	print_instr("GETFIELD0");
-	accu = Field(accu, 0); 
+        accu = Field(accu, 0);
 	Next;
       }
 
@@ -933,25 +921,25 @@ value coq_interprete
 
       Instruct(GETFIELD){
 	print_instr("GETFIELD");
-	accu = Field(accu, *pc); 
-	pc++; 
+        accu = Field(accu, *pc);
+        pc++;
 	Next;
       }
-      
+
       Instruct(SETFIELD0){
 	print_instr("SETFIELD0");
 	caml_modify(&Field(accu, 0),*sp);
 	sp++;
 	Next;
       }
-	
+
       Instruct(SETFIELD1){
 	print_instr("SETFIELD1");
 	caml_modify(&Field(accu, 1),*sp);
        	sp++;
-	Next; 
+        Next;
       }
-       
+
       Instruct(SETFIELD){
 	print_instr("SETFIELD");
 	caml_modify(&Field(accu, *pc),*sp);
@@ -1030,7 +1018,7 @@ value coq_interprete
       Instruct(CONST3){
 	print_instr("CONST3");
 	accu = Val_int(3); Next;}
-      
+
       Instruct(PUSHCONST0){
 	print_instr("PUSHCONST0");
 	*--sp = accu; accu = Val_int(0); Next;
@@ -1068,14 +1056,14 @@ value coq_interprete
 	size = Wosize_val(coq_env);
 	Alloc_small(accu, size + coq_extra_args + 1, Accu_tag);
 	for(i = 0; i < size; i++) Field(accu, i) = Field(coq_env, i);
-	for(i = size; i <= coq_extra_args + size; i++) 
+        for(i = size; i <= coq_extra_args + size; i++)
 	  Field(accu, i) = *sp++;
 	pc = (code_t)(sp[0]);
 	coq_env = sp[1];
 	coq_extra_args = Long_val(sp[2]);
 	sp += 3;
 	Next;
-      }  
+      }
       Instruct(MAKESWITCHBLOCK) {
 	print_instr("MAKESWITCHBLOCK");
 	*--sp = accu; // Save matched block on stack
@@ -1097,14 +1085,14 @@ value coq_interprete
             // Push arguments to stack
             CHECK_STACK(nargs+1);
 	    sp -= nargs;
-	    for (i = 0; i < nargs; i++) sp[i] = Field(accu, i + 2); 
+            for (i = 0; i < nargs; i++) sp[i] = Field(accu, i + 2);
 	    *--sp = accu; // Last argument is the pointer to the suspension
 	    print_lint(nargs);
 	    coq_extra_args = nargs;
 	    pc = Code_val(coq_env); // Trigger evaluation
 	    goto check_stack;
 	  }
-	case ATOM_COFIXEVALUATED_TAG: 
+        case ATOM_COFIXEVALUATED_TAG:
 	  {
 	    print_instr("COFIX_EVAL_TAG");
 	    accu = Field(accu,1);
@@ -1113,16 +1101,16 @@ value coq_interprete
 	    sp++;
 	    Next;
 	  }
-	default: 
-	  {  
+        default:
+          {
 	    mlsize_t sz;
 	    int i, annot;
 	    code_t typlbl,swlbl;
 	    print_instr("MAKESWITCHBLOCK");
-	    
-	    typlbl = (code_t)pc + *pc; 
+
+            typlbl = (code_t)pc + *pc;
 	    pc++;
-	    swlbl = (code_t)pc + *pc; 
+            swlbl = (code_t)pc + *pc;
 	    pc++;
 	    annot = *pc++;
 	    sz = *pc++;
@@ -1140,8 +1128,8 @@ value coq_interprete
 	    *--sp = accu;
 	    /* We create the switch zipper */
 	    Alloc_small(accu, 5, Default_tag);
-	    Field(accu, 0) =  (value)typlbl; Field(accu, 1) = (value)swlbl; 
-	    Field(accu, 2) = sp[1]; Field(accu, 3) = sp[0]; 
+            Field(accu, 0) =  (value)typlbl; Field(accu, 1) = (value)swlbl;
+            Field(accu, 2) = sp[1]; Field(accu, 3) = sp[0];
 	    Field(accu, 4) = coq_env;
 	    sp++;sp[0] = accu;
 	    /* We create the atom */
@@ -1150,15 +1138,15 @@ value coq_interprete
 	    sp++;sp[0] = accu;
 	    /* We create the accumulator */
 	    Alloc_small(accu, 2, Accu_tag);
-	    Code_val(accu) = accumulate; 
+            Code_val(accu) = accumulate;
 	    Field(accu,1) = *sp++;
 	  }
 	}
 	Next;
       }
 
-	
-         
+
+
       Instruct(MAKEACCU) {
 	int i;
 	print_instr("MAKEACCU");
@@ -1172,7 +1160,7 @@ value coq_interprete
 	sp += 3;
 	Next;
       }
-     
+
       Instruct(MAKEPROD) {
 	print_instr("MAKEPROD");
 	*--sp=accu;
@@ -1196,7 +1184,7 @@ value coq_interprete
         CheckInt2();
       }
       Instruct(ADDINT63) {
-        /* Adds the integer in the accumulator with 
+        /* Adds the integer in the accumulator with
            the one ontop of the stack (which is poped)*/
         print_instr("ADDINT63");
         accu = uint63_add(accu, *sp++);
@@ -1326,14 +1314,14 @@ value coq_interprete
         value divisor;
         divisor = *sp++;
         if (uint63_eq0(divisor)) {
-          Alloc_small(accu, 2, 1); /* ( _ , arity, tag ) */
+          Alloc_small(accu, 2, coq_tag_pair); /* ( _ , arity, tag ) */
           Field(accu, 0) = uint63_zero;
           Field(accu, 1) = uint63_zero;
         }
         else {
           value modulus;
           modulus = accu;
-          Alloc_small(accu, 2, 1); /* ( _ , arity, tag ) */
+          Alloc_small(accu, 2, coq_tag_pair); /* ( _ , arity, tag ) */
           Field(accu, 0) = uint63_div(modulus,divisor);
           Field(accu, 1) = uint63_mod(modulus,divisor);
         }
@@ -1367,14 +1355,14 @@ value coq_interprete
         value divisor;
         divisor = *sp++;
         if (uint63_eq0(divisor)) {
-          Alloc_small(accu, 2, 1);
+          Alloc_small(accu, 2, coq_tag_pair);
           Field(accu, 0) = uint63_zero;
           Field(accu, 1) = uint63_zero;
 	}
         else {
           value quo, mod;
           mod = uint63_div21(accu, bigint, divisor, &quo);
-          Alloc_small(accu, 2, 1);
+          Alloc_small(accu, 2, coq_tag_pair);
           Field(accu, 0) = quo;
           Field(accu, 1) = mod;
 	}
@@ -1525,6 +1513,114 @@ value coq_interprete
       }
 
 
+      Instruct (CHECKOPPFLOAT) {
+        print_instr("CHECKOPPFLOAT");
+        CheckFloat1();
+        accu = coq_copy_double(-Double_val(accu));
+        Next;
+      }
+
+      Instruct (CHECKABSFLOAT) {
+        print_instr("CHECKABSFLOAT");
+        CheckFloat1();
+        accu = coq_copy_double(fabs(Double_val(accu)));
+        Next;
+      }
+
+      Instruct (CHECKCOMPAREFLOAT) {
+        double x, y;
+        print_instr("CHECKCOMPAREFLOAT");
+        CheckFloat2();
+        x = Double_val(accu);
+        y = Double_val(*sp++);
+        if(x == y) {
+          Alloc_small(accu, 1, coq_tag_Some);
+          Field(accu, 0) = coq_Eq;
+        }
+        else if(x < y) {
+          Alloc_small(accu, 1, coq_tag_Some);
+          Field(accu, 0) = coq_Lt;
+        }
+        else if(x > y) {
+          Alloc_small(accu, 1, coq_tag_Some);
+          Field(accu, 0) = coq_Gt;
+        }
+        else { // nan value
+            accu = coq_None;
+        }
+        Next;
+      }
+
+      Instruct (CHECKADDFLOAT) {
+        print_instr("CHECKADDFLOAT");
+        CheckFloat2();
+        accu = coq_copy_double(Double_val(accu) + Double_val(*sp++));
+        Next;
+      }
+
+      Instruct (CHECKSUBFLOAT) {
+        print_instr("CHECKSUBFLOAT");
+        CheckFloat2();
+        accu = coq_copy_double(Double_val(accu) - Double_val(*sp++));
+        Next;
+      }
+
+      Instruct (CHECKMULFLOAT) {
+        print_instr("CHECKMULFLOAT");
+        CheckFloat2();
+        accu = coq_copy_double(Double_val(accu) * Double_val(*sp++));
+        Next;
+      }
+
+      Instruct (CHECKDIVFLOAT) {
+        print_instr("CHECKDIVFLOAT");
+        CheckFloat2();
+        accu = coq_copy_double(Double_val(accu) / Double_val(*sp++));
+        Next;
+      }
+
+      Instruct (CHECKSQRTFLOAT) {
+        print_instr("CHECKSQRTFLOAT");
+        CheckFloat1();
+        accu = coq_copy_double(sqrt(Double_val(accu)));
+        Next;
+      }
+
+      Instruct (CHECKFLOATOFINT63) {
+        print_instr("CHECKFLOATOFINT63");
+        CheckInt1();
+        accu = coq_copy_double(uint63_to_double(accu));
+        Next;
+      }
+
+      Instruct (CHECKINT63OFFLOAT) {
+        print_instr("CHECKINT63OFFLOAT");
+        CheckFloat1();
+        accu = uint63_of_double(Double_val(accu));
+        Next;
+      }
+
+      Instruct (CHECKFRSHIFTEXP) {
+        int exp;
+        double f;
+        print_instr("CHECKFRSHIFTEXP");
+        CheckFloat1();
+        f = frexp(Double_val(accu), &exp);
+        exp += FLOAT_EXP_SHIFT;
+        Alloc_small(accu, 2, coq_tag_pair);
+        Field(accu, 0) = coq_copy_double(f);
+        Field(accu, 1) = Val_int(exp);
+        Next;
+      }
+
+      Instruct (CHECKLDSHIFTEXP) {
+        print_instr("CHECKLDSHIFTEXP");
+        CheckPrimArgs(Is_double(accu) && Is_uint63(sp[0]), apply2);
+        accu = coq_copy_double(ldexp(Double_val(accu),
+                    uint63_of_value(*sp++) - FLOAT_EXP_SHIFT));
+        Next;
+      }
+
 /* Debugging and machine control */
 
       Instruct(STOP){
@@ -1532,8 +1628,8 @@ value coq_interprete
 	coq_sp = sp;
 	return accu;
       }
-      
-  
+
+
 #ifndef THREADED_CODE
     default:
       /*fprintf(stderr, "%d\n", *pc);*/
@@ -1543,7 +1639,7 @@ value coq_interprete
 #endif
 }
 
-value coq_push_ra(value tcode) { 
+value coq_push_ra(value tcode) {
   print_instr("push_ra");
   coq_sp -= 3;
   coq_sp[0] = (value) tcode;

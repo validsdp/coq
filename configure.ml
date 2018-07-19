@@ -400,7 +400,7 @@ let coq_bin_annot_flag = if !Prefs.bin_annot then "-bin-annot" else ""
    care. *)
 let coq_safe_string = "-safe-string"
 
-let cflags = "-Wall -Wno-unused -g -O2"
+let cflags = "-Wall -Wno-unused -g -O2 -std=c99"
 
 (** * Architecture *)
 

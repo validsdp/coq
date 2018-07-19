@@ -12,7 +12,7 @@
    for fast computation of bounded (31bits) integers */
 
 #include <stdio.h>
-#include <stdlib.h> 
+#include <stdlib.h>
 #include <stdint.h>
 #include <caml/config.h>
 #include <caml/misc.h>
@@ -41,7 +41,7 @@ void init_arity () {
     arity[GETFIELD0]=arity[GETFIELD1]=arity[SETFIELD0]=arity[SETFIELD1]=
     arity[CONST0]=arity[CONST1]=arity[CONST2]=arity[CONST3]=
     arity[PUSHCONST0]=arity[PUSHCONST1]=arity[PUSHCONST2]=arity[PUSHCONST3]=
-    arity[ACCUMULATE]=arity[STOP]=arity[MAKEPROD]= 
+    arity[ACCUMULATE]=arity[STOP]=arity[MAKEPROD]=
     arity[ADDINT63]=arity[SUBINT63]=arity[LTINT63]=arity[LEINT63]=
     arity[ISINT]=arity[AREINT2]=0;
   /* instruction with one operand */
@@ -62,11 +62,16 @@ void init_arity () {
     arity[CHECKLSLINT63]=arity[CHECKLSRINT63]=arity[CHECKADDMULDIVINT63]=
     arity[CHECKLSLINT63CONST1]=arity[CHECKLSRINT63CONST1]=
     arity[CHECKEQINT63]=arity[CHECKLTINT63]=arity[CHECKLEINT63]=
-    arity[CHECKCOMPAREINT63]=arity[CHECKHEAD0INT63]=arity[CHECKTAIL0INT63]=1;
+    arity[CHECKCOMPAREINT63]=arity[CHECKHEAD0INT63]=arity[CHECKTAIL0INT63]=
+    arity[CHECKOPPFLOAT]=arity[CHECKABSFLOAT]=arity[CHECKCOMPAREFLOAT]=
+    arity[CHECKADDFLOAT]=arity[CHECKSUBFLOAT]=arity[CHECKMULFLOAT]=
+    arity[CHECKDIVFLOAT]=arity[CHECKSQRTFLOAT]=
+    arity[CHECKFLOATOFINT63]=arity[CHECKINT63OFFLOAT]=
+    arity[CHECKFRSHIFTEXP]=arity[CHECKLDSHIFTEXP]=1;
   /* instruction with two operands */
   arity[APPTERM]=arity[MAKEBLOCK]=arity[CLOSURE]=
   arity[PROJ]=2;
-  /* instruction with four operands */ 
+  /* instruction with four operands */
   arity[MAKESWITCHBLOCK]=4;
   /* instruction with arbitrary operands */
   arity[CLOSUREREC]=arity[CLOSURECOFIX]=arity[SWITCH]=0;
@@ -138,14 +143,14 @@ value coq_is_accumulate_code(value code){
 #endif /* ARCH_BIG_ENDIAN */
 
 value coq_tcode_of_code (value code, value size) {
-  code_t p, q, res; 
+  code_t p, q, res;
   asize_t len = (asize_t) Long_val(size);
   res = coq_stat_alloc(len);
   q = res;
   len /= sizeof(opcode_t);
-  for (p = (code_t)code; p < (code_t)code + len; /*nothing*/) {  
+  for (p = (code_t)code; p < (code_t)code + len; /*nothing*/) {
     opcode_t instr;
-    COPY32(&instr,p); 
+    COPY32(&instr,p);
     p++;
     if (instr < 0 || instr > STOP){
       instr = STOP;
@@ -167,7 +172,7 @@ value coq_tcode_of_code (value code, value size) {
       for(i=1; i<n; i++) { COPY32(q,p); p++; q++; };
     } else {
       uint32_t i, ar;
-      ar = arity[instr]; 
+      ar = arity[instr];
       for(i=0; i<ar; i++) { COPY32(q,p); p++; q++; };
     }
   }

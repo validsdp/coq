@@ -228,7 +228,18 @@ let check_prim_op = function
   | Int63le        -> opCHECKLEINT63
   | Int63compare   -> opCHECKCOMPAREINT63
   | Int63eqb_correct -> assert false
-  | _ -> 0 (* TODO: BERTHOLON add float64 operations *)
+  | Float64opp     -> opCHECKOPPFLOAT
+  | Float64abs     -> opCHECKABSFLOAT
+  | Float64compare -> opCHECKCOMPAREFLOAT
+  | Float64add     -> opCHECKADDFLOAT
+  | Float64sub     -> opCHECKSUBFLOAT
+  | Float64mul     -> opCHECKMULFLOAT
+  | Float64div     -> opCHECKDIVFLOAT
+  | Float64sqrt    -> opCHECKSQRTFLOAT
+  | Float64ofInt63 -> opCHECKFLOATOFINT63
+  | Float64toInt63 -> opCHECKINT63OFFLOAT
+  | Float64frshiftexp -> opCHECKFRSHIFTEXP
+  | Float64ldshiftexp -> opCHECKLDSHIFTEXP
 
 
 

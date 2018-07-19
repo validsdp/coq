@@ -162,7 +162,7 @@ type arg_kind =
 
 type args_red = arg_kind list
 
-(* Invariant only argument of type int63, array or an inductive can
+(* Invariant only argument of type int63, float, array or an inductive can
    have kind Kwhnf *)
 
 let iterator_kind = [Kparam;Kparam;Karg;Kwhnf;Kwhnf;Karg]
