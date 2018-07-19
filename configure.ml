@@ -455,7 +455,7 @@ let coq_bin_annot_flag = if !prefs.bin_annot then "-bin-annot" else ""
 let coq_safe_string = "-safe-string"
 let coq_strict_sequence = "-strict-sequence"
 
-let cflags = "-Wall -Wno-unused -g -O2"
+let cflags = "-Wall -Wno-unused -g -O2 -std=c99"
 
 (** * Architecture *)
 

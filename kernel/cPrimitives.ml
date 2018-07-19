@@ -133,7 +133,7 @@ type arg_kind =
 
 type args_red = arg_kind list
 
-(* Invariant only argument of type int63 or an inductive can
+(* Invariant only argument of type int63, float, or an inductive can
    have kind Kwhnf *)
 
 let kind = function

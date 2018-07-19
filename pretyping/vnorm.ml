@@ -159,6 +159,10 @@ and nf_whd env sigma whd typ =
     construct_of_constr_const env n typ
   | Vconstr_block b ->
       let tag = btag b in
+      if tag = Obj.double_tag then (
+        assert (Constr.equal typ (Typeops.type_of_float env));
+        mkFloat (Obj.magic b))
+      else (
       let (tag,ofs) =
         if tag = Obj.last_non_constant_constructor_tag then
 	  match whd_val (bfield b 0) with
@@ -167,7 +171,7 @@ and nf_whd env sigma whd typ =
         else (tag, 0) in
       let capp,ctyp = construct_of_constr_block env tag typ in
       let args = nf_bargs env sigma b ofs ctyp in
-      mkApp(capp,args)
+      mkApp(capp,args))
   | Vint64 i -> i |> Uint63.of_int64 |> mkInt
   | Vatom_stk(Aid idkey, stk) ->
       constr_type_of_idkey env sigma idkey stk
