@@ -29,9 +29,27 @@ Notation "x / y" := (div x y) : float_scope.
 
 Primitive sqrt := #float64_sqrt.
 
-(* Conversion from/to int63 *)
+(* Convert a primitive integer into a float value.
+ * The value is rounded if necessary. *)
 Primitive of_int63 := #float64_of_int63.
-Primitive to_int63 := #float64_to_int63.
+
+(* If the input is a float value with an absolute value
+ * inside ]1.;0.5] then return its mantissa as a primitive integer.
+ * The mantissa will be a 53-bit integer with its most significant bit set to 1.
+ * Else return zero.
+ * The sign bit is always ignored. *)
+Primitive normfr_mantissa := #float64_normfr_mantissa.
+
+(* Exponent manipulation functions *)
+Definition shift := (1022 + 52)%int63.
+Primitive frshiftexp := #float64_frshiftexp.
+Primitive ldshiftexp := #float64_ldshiftexp.
+
+Definition frexp f :=
+  let (m, se) := frshiftexp f in
+  (m, ([| se |] - [| shift |])%Z%int63).
+
+Definition ldexp f e := ldshiftexp f (of_Z e + shift).
 
 Local Open Scope float_scope.
 
@@ -71,13 +89,3 @@ Definition get_sign f := (* + => false, - => true *)
   | Some Gt => false
   | _ => true
   end.
-
-Definition shift := (1022 + 52)%int63.
-Primitive frshiftexp := #float64_frshiftexp.
-Primitive ldshiftexp := #float64_ldshiftexp.
-
-Definition frexp f :=
-  let (m, se) := frshiftexp f in
-  (m, ([| se |] - [| shift |])%Z%int63).
-
-Definition ldexp f e := ldshiftexp f (of_Z e + shift).

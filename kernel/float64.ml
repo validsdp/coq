@@ -19,6 +19,8 @@ let is_nan f = f <> f
 let to_string f = if is_nan f then "nan" else string_of_float f
 let of_string = float_of_string
 
+let of_float f = f
+
 let opp = ( ~-. )
 let abs = abs_float
 
@@ -43,9 +45,14 @@ let div = ( /. )
 let sqrt = Pervasives.sqrt
 
 let of_int63 = Uint63.to_float
-let to_int63 = Uint63.of_float
 
-let eshift = 1022 + 52 (* minimum negative exponent + precision *)
+let prec = 53
+let normfr_mantissa f =
+  let f = abs f in
+  if f >= 0.5 && f < 1. then Uint63.of_float (ldexp f prec)
+  else Uint63.zero
+
+let eshift = 1022 + 52 (* minimum negative exponent + binary precision *)
 
 let frshiftexp f =
   let (m, e) = frexp f in

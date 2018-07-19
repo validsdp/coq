@@ -272,7 +272,7 @@ GRAMMAR EXTEND Gram
        | "#float64_div" -> { CPrimitives.Float64div }
        | "#float64_sqrt" -> { CPrimitives.Float64sqrt }
        | "#float64_of_int63" -> { CPrimitives.Float64ofInt63 }
-       | "#float64_to_int63" -> { CPrimitives.Float64toInt63 }
+       | "#float64_normfr_mantissa" -> { CPrimitives.Float64normfr_mantissa }
        | "#float64_frshiftexp" -> { CPrimitives.Float64frshiftexp }
        | "#float64_ldshiftexp" -> { CPrimitives.Float64ldshiftexp }
      ] ]

@@ -243,7 +243,7 @@ let check_prim_op = function
   | Float64div     -> opCHECKDIVFLOAT
   | Float64sqrt    -> opCHECKSQRTFLOAT
   | Float64ofInt63 -> opCHECKFLOATOFINT63
-  | Float64toInt63 -> opCHECKINT63OFFLOAT
+  | Float64normfr_mantissa -> opCHECKFLOATNORMFRMANTISSA
   | Float64frshiftexp -> opCHECKFRSHIFTEXP
   | Float64ldshiftexp -> opCHECKLDSHIFTEXP
 

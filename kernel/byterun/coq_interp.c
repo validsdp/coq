@@ -1607,10 +1607,18 @@ value coq_interprete
         Next;
       }
 
-      Instruct (CHECKINT63OFFLOAT) {
-        print_instr("CHECKINT63OFFLOAT");
+      Instruct (CHECKFLOATNORMFRMANTISSA) {
+        double f;
+        print_instr("CHECKFLOATNORMFRMANTISSA");
         CheckFloat1();
-        accu = uint63_of_double(Double_val(accu));
+        f = fabs(Double_val(accu));
+        if (f >= 0.5 && f < 1) {
+          accu = uint63_of_double(ldexp(f, DBL_MANT_DIG));
+        }
+        else
+        {
+          accu = Val_int(0);
+        }
         Next;
       }
 

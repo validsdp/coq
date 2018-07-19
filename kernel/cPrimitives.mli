@@ -42,7 +42,7 @@ type t =
   | Float64div
   | Float64sqrt
   | Float64ofInt63
-  | Float64toInt63
+  | Float64normfr_mantissa
   | Float64frshiftexp
   | Float64ldshiftexp
 

@@ -549,7 +549,6 @@ let rec lambda_of_constr cache env sigma c =
       Lcofix(init, (names, ltypes, lbodies))
 
   | Int i -> Luint i
-  | Float _ -> assert false  (* not yet implemented *)
 
   | Float _ -> assert false  (* native computed for primitive float not yet implemented *)
 
