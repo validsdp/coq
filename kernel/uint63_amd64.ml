@@ -14,8 +14,14 @@ let to_int i = i
 let to_int2 i = (0,i)
 let of_int64 i = assert false
 
+let two_pow_63_m_1 = Int64.(sub (shift_left 1L 63) 1L)
+
 let of_float = int_of_float
-let to_float = float_of_int
+let to_float i =
+  if i >= 0 then (* Integer below 2^62 - 1 *)
+    float_of_int i
+  else
+    Int64.(to_float (logand (of_int i) two_pow_63_m_1))
 
 let hash i = i
 
