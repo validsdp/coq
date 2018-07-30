@@ -1,4 +1,4 @@
-Require Import ZArith Int63 EmulatedFloat FloatNative.
+Require Import ZArith Int63 EmulatedFloat FloatNative FloatValues.
 
 (* Properties of the Binary64 IEEE 754 format *)
 Definition prec := 53%Z.
