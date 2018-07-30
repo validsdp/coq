@@ -1601,8 +1601,7 @@ value coq_interprete
         if (f >= 0.5 && f < 1) {
           accu = uint63_of_double(ldexp(f, DBL_MANT_DIG));
         }
-        else
-        {
+        else {
           accu = Val_int(0);
         }
         Next;
@@ -1614,7 +1613,12 @@ value coq_interprete
         print_instr("CHECKFRSHIFTEXP");
         CheckFloat1();
         f = frexp(Double_val(accu), &exp);
-        exp += FLOAT_EXP_SHIFT;
+        if (fpclassify(f) == FP_NORMAL) {
+          exp += FLOAT_EXP_SHIFT;
+        }
+        else {
+          exp = 0;
+        }
         Alloc_small(accu, 2, coq_tag_pair);
         Field(accu, 0) = coq_copy_double(f);
         Field(accu, 1) = Val_int(exp);
