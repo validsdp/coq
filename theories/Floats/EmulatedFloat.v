@@ -333,4 +333,28 @@ Section FloatOps.
       let '(mz, ez, lz) := EFsqrt_core_binary (Zpos mx) ex in
       binary_round_aux false mz ez lz
     end.
+
+  Definition EFnormfr_mantissa f :=
+    match f with
+    | E754_finite _ mx ex =>
+      if Z.eqb ex (-prec)%Z then Npos mx else 0%N
+    | _ => 0%N
+    end.
+
+  Definition EFldexp f e :=
+    match f with
+    | E754_finite sx mx ex => binary_round sx mx (ex+e)
+    | _ => f
+    end.
+
+  Definition EFfrexp f :=
+    match f with
+    | E754_finite sx mx ex =>
+      if (digits2_pos mx =? Z.to_pos prec)%positive then
+        (E754_finite sx mx (-prec)%Z, (ex+prec)%Z)
+      else
+        let d := (prec - Z.pos (digits2_pos mx))%Z in
+        (E754_finite sx (shift_pos (Z.to_pos d) mx) (-prec)%Z, (ex+prec-d)%Z)
+    | _ => (f, emin%Z)
+    end.
 End FloatOps.
