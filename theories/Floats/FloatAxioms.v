@@ -59,3 +59,9 @@ Axiom FPplus_EFplus : forall x y, Prim2EF (x + y)%float = EF64plus (Prim2EF x) (
 Axiom FPminus_EFminus : forall x y, Prim2EF (x - y)%float = EF64minus (Prim2EF x) (Prim2EF y).
 Axiom FPdiv_EFdiv : forall x y, Prim2EF (x / y)%float = EF64div (Prim2EF x) (Prim2EF y).
 Axiom FPsqrt_EFsqrt : forall x, Prim2EF (sqrt x) = EF64sqrt (Prim2EF x).
+
+Axiom of_int63_spec : forall n, Prim2EF (of_int63 n) = binary_normalize prec emax (to_Z n) 0%Z false.
+Axiom normfr_mantissa_spec : forall f, to_Z (normfr_mantissa f) = Z.of_N (EFnormfr_mantissa prec (Prim2EF f)).
+
+Axiom frexp_spec : forall f, let (m,e) := frexp f in (Prim2EF m, e) = EFfrexp prec emax (Prim2EF f).
+Axiom ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2EF f) e.
