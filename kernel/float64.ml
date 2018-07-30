@@ -55,6 +55,9 @@ let normfr_mantissa f =
 let eshift = 1022 + 52 (* minimum negative exponent + binary precision *)
 
 let frshiftexp f =
+  match classify_float f with
+  | FP_zero | FP_infinite | FP_nan -> (f, Uint63.zero)
+  | FP_normal | FP_subnormal ->
   let (m, e) = frexp f in
   (m, Uint63.of_int (e + eshift))
 
