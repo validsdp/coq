@@ -310,4 +310,28 @@ Section FloatOps.
       let '(mz, ez, lz) := SFsqrt_core_binary (Zpos mx) ex in
       binary_round_aux false mz ez lz
     end.
+
+  Definition SFnormfr_mantissa f :=
+    match f with
+    | S754_finite _ mx ex =>
+      if Z.eqb ex (-prec)%Z then Npos mx else 0%N
+    | _ => 0%N
+    end.
+
+  Definition SFldexp f e :=
+    match f with
+    | S754_finite sx mx ex => binary_round sx mx (ex+e)
+    | _ => f
+    end.
+
+  Definition SFfrexp f :=
+    match f with
+    | S754_finite sx mx ex =>
+      if (Z.to_pos prec <=? digits2_pos mx)%positive then
+        (S754_finite sx mx (-prec), (ex+prec)%Z)
+      else
+        let d := (prec - Z.pos (digits2_pos mx))%Z in
+        (S754_finite sx (shift_pos (Z.to_pos d) mx) (-prec), (ex+prec-d)%Z)
+    | _ => (f, emin%Z)
+    end.
 End FloatOps.

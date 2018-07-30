@@ -50,7 +50,6 @@ Theorem SF2Prim_inj : forall x y, SF2Prim x = SF2Prim y -> valid_binary x = true
   intros. rewrite <- Prim2SF_SF2Prim by assumption. symmetry. rewrite <- Prim2SF_SF2Prim by assumption. rewrite H. reflexivity.
 Qed.
 
-
 Axiom opp_SFopp : forall x, Prim2SF (-x)%float = SFopp (Prim2SF x).
 Axiom abs_SFabs : forall x, Prim2SF (abs x) = SFabs (Prim2SF x).
 Axiom compare_SFcompare : forall x y, (x ?= y)%float = SFcompare (Prim2SF x) (Prim2SF y).
@@ -59,3 +58,9 @@ Axiom plus_SFplus : forall x y, Prim2SF (x + y)%float = SF64plus (Prim2SF x) (Pr
 Axiom minus_SFminus : forall x y, Prim2SF (x - y)%float = SF64minus (Prim2SF x) (Prim2SF y).
 Axiom div_SFdiv : forall x y, Prim2SF (x / y)%float = SF64div (Prim2SF x) (Prim2SF y).
 Axiom sqrt_SFsqrt : forall x, Prim2SF (sqrt x) = SF64sqrt (Prim2SF x).
+
+Axiom of_int63_spec : forall n, Prim2SF (of_int63 n) = binary_normalize prec emax (to_Z n) 0%Z false.
+Axiom normfr_mantissa_SFnormfr_mantissa : forall f, to_Z (normfr_mantissa f) = Z.of_N (SFnormfr_mantissa prec (Prim2SF f)).
+
+Axiom frexp_SFfrexp : forall f, let (m,e) := frexp f in (Prim2SF m, e) = SFfrexp prec emax (Prim2SF f).
+Axiom ldexp_SFldexp : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2SF f) e.
