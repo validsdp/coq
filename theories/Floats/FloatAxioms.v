@@ -1,8 +1,4 @@
-Require Import ZArith Int63 EmulatedFloat FloatNative FloatValues.
-
-(* Properties of the Binary64 IEEE 754 format *)
-Definition prec := 53%Z.
-Definition emax := 1024%Z.
+Require Import ZArith Int63 EmulatedFloat FloatNative FloatOps.
 
 Notation valid_binary := (valid_binary prec emax).
 
@@ -11,32 +7,6 @@ Definition EF64plus := EFplus prec emax.
 Definition EF64minus := EFminus prec emax.
 Definition EF64div := EFdiv prec emax.
 Definition EF64sqrt := EFsqrt prec emax.
-
-Definition Prim2EF f :=
-  if is_nan f then E754_nan
-  else if is_zero f then E754_zero (get_sign f)
-       else if is_infinity f then E754_infinity (get_sign f)
-            else
-              let (r, exp) := frexp f in
-              let e := (exp - prec)%Z in
-              let (shr, e') := shr_fexp prec emax [| normfr_mantissa r |]%int63 e loc_Exact in
-              match shr_m shr with
-              | Zpos p => E754_finite (get_sign f) p e'
-              | Zneg _ | Z0 => E754_zero false (* must never occur *)
-              end.
-
-Definition EF2Prim ef :=
-  match ef with
-  | E754_nan => nan
-  | E754_zero false => zero
-  | E754_zero true => neg_zero
-  | E754_infinity false => infinity
-  | E754_infinity true => neg_infinity
-  | E754_finite s m e =>
-    let pm := of_int63 (of_Z (Zpos m)) in
-    let f := ldexp pm e in
-    if s then (-f)%float else f
-  end.
 
 Axiom Prim2EF_valid : forall x, valid_binary (Prim2EF x) = true.
 Axiom EF2Prim_Prim2EF : forall x, EF2Prim (Prim2EF x) = x.
@@ -63,5 +33,5 @@ Axiom FPsqrt_EFsqrt : forall x, Prim2EF (sqrt x) = EF64sqrt (Prim2EF x).
 Axiom of_int63_spec : forall n, Prim2EF (of_int63 n) = binary_normalize prec emax (to_Z n) 0%Z false.
 Axiom normfr_mantissa_spec : forall f, to_Z (normfr_mantissa f) = Z.of_N (EFnormfr_mantissa prec (Prim2EF f)).
 
-Axiom frexp_spec : forall f, let (m,e) := frexp f in (Prim2EF m, e) = EFfrexp prec emax (Prim2EF f).
-Axiom ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2EF f) e.
+Axiom frshiftexp_spec : forall f, let (m,e) := frshiftexp f in (Prim2EF m, ((to_Z e) - (to_Z shift))%Z) = EFfrexp prec emax (Prim2EF f).
+Axiom ldshiftexp_spec : forall f e, Prim2EF (ldshiftexp f e) = EFldexp prec emax (Prim2EF f) ((to_Z e) - (to_Z shift)).

@@ -42,12 +42,6 @@ Register Primitive normfr_mantissa : float -> int as float64_normfr_mantissa.
 
 
 (* Exponent manipulation functions *)
-Definition shift := (1022 + 52)%int63.
+Definition shift := (2101)%int63. (* = 2*emax + prec *)
 Register Primitive frshiftexp : float -> float * int as float64_frshiftexp.
 Register Primitive ldshiftexp : float -> int -> float as float64_ldshiftexp.
-
-Definition frexp f :=
-  let (m, se) := frshiftexp f in
-  (m, ([| se |] - [| shift |])%Z%int63).
-
-Definition ldexp f e := ldshiftexp f (of_Z e + shift).

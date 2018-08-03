@@ -50,7 +50,7 @@ let normfr_mantissa f =
   if f >= 0.5 && f < 1. then Uint63.of_float (ldexp f prec)
   else Uint63.zero
 
-let eshift = 1022 + 52 (* minimum negative exponent + binary precision *)
+let eshift = 2101 (* 2*emax + prec *)
 
 let frshiftexp f =
   match classify_float f with
