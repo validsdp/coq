@@ -157,7 +157,7 @@ and nf_whd env sigma whd typ =
   | Vconstr_block b ->
       let tag = btag b in
       if tag = Obj.double_tag then (
-        assert (Constr.equal typ (Typeops.type_of_float env));
+        assert (Constr.equal (whd_all env typ) (Typeops.type_of_float env));
         mkFloat (Obj.magic b))
       else (
       let (tag,ofs) =
