@@ -168,32 +168,33 @@ Section FloatOps.
   Definition EFcompare f1 f2 :=
     match f1, f2 with
     | E754_nan , _ | _, E754_nan => None
-    | E754_infinity true, E754_infinity true
-    | E754_infinity false, E754_infinity false => Some Eq
-    | E754_infinity true, _ => Some Lt
-    | E754_infinity false, _ => Some Gt
-    | _, E754_infinity true => Some Gt
-    | _, E754_infinity false => Some Lt
-    | E754_finite true _ _, E754_zero _ => Some Lt
-    | E754_finite false _ _, E754_zero _ => Some Gt
-    | E754_zero _, E754_finite true _ _ => Some Gt
-    | E754_zero _, E754_finite false _ _ => Some Lt
+    | E754_infinity s1, E754_infinity s2 =>
+      Some match s1, s2 with
+      | true, true => Eq
+      | false, false => Eq
+      | true, false => Lt
+      | false, true => Gt
+      end
+    | E754_infinity s, _ => Some (if s then Lt else Gt)
+    | _, E754_infinity s => Some (if s then Gt else Lt)
+    | E754_finite s _ _, E754_zero _ => Some (if s then Lt else Gt)
+    | E754_zero _, E754_finite s _ _ => Some (if s then Gt else Lt)
     | E754_zero _, E754_zero _ => Some Eq
     | E754_finite s1 m1 e1, E754_finite s2 m2 e2 =>
-      match s1, s2 with
-      | true, false => Some Lt
-      | false, true => Some Gt
+      Some match s1, s2 with
+      | true, false => Lt
+      | false, true => Gt
       | false, false =>
         match Z.compare e1 e2 with
-        | Lt => Some Lt
-        | Gt => Some Gt
-        | Eq => Some (Pcompare m1 m2 Eq)
+        | Lt => Lt
+        | Gt => Gt
+        | Eq => Pcompare m1 m2 Eq
         end
       | true, true =>
         match Z.compare e1 e2 with
-        | Lt => Some Gt
-        | Gt => Some Lt
-        | Eq => Some (CompOpp (Pcompare m1 m2 Eq))
+        | Lt => Gt
+        | Gt => Lt
+        | Eq => CompOpp (Pcompare m1 m2 Eq)
         end
       end
     end.
