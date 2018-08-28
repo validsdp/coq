@@ -1,9 +1,10 @@
 Require Import ZArith. (* TODO remove? only used in frexp *)
-Require Import Int63.
+Require Import Int63 FloatClass.
 
 Inductive float_comparison : Set := FEq | FLt | FGt | FNotComparable.
 
 Register float_comparison as kernel.ind_f_cmp.
+Register float_class as kernel.ind_f_class.
 
 Primitive float := #float64_type.
 
@@ -18,6 +19,8 @@ Primitive abs := #float64_abs.
 
 Primitive compare := #float64_compare.
 Notation "x ?= y" := (compare x y) (at level 70, no associativity) : float_scope.
+
+Primitive classify := #float64_classify.
 
 Primitive mul := #float64_mul.
 Notation "x * y" := (mul x y) : float_scope.

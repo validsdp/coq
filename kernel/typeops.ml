@@ -246,6 +246,11 @@ let type_of_prim env t =
     | Some ((ind,_),_,_,_) -> Constr.mkInd ind
     | None -> CErrors.user_err Pp.(str"The type float_comparison must be registered before this primitive.")
   in
+  let f_class_ty () =
+    match env.retroknowledge.Retroknowledge.retro_f_class with
+    | Some ((ind,_),_,_,_,_,_,_,_,_) -> Constr.mkInd ind
+    | None -> CErrors.user_err Pp.(str"The type float_class must be registered before this primitive.")
+  in
   let pair_ty fst_ty snd_ty =
     match env.retroknowledge.Retroknowledge.retro_pair with
     | Some (ind,_) -> Constr.mkApp(Constr.mkInd ind, [|fst_ty;snd_ty|])
@@ -291,6 +296,7 @@ let type_of_prim env t =
      nary_op (arity t) (int_ty ()) ret_ty
   | Int63compare -> nary_op (arity t) (int_ty ()) (compare_ty ())
   | Float64compare -> nary_op (arity t) (float_ty ()) (f_compare_ty ())
+  | Float64classify -> nary_op (arity t) (float_ty ()) (f_class_ty ())
   | Float64opp
   | Float64abs
   | Float64add

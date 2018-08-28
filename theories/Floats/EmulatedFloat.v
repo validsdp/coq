@@ -1,4 +1,4 @@
-Require Import ZArith Rdefinitions Raxioms.
+Require Import ZArith Rdefinitions Raxioms FloatClass.
 
 Inductive emulated_float :=
   | E754_zero : bool -> emulated_float
@@ -199,6 +199,22 @@ Section FloatOps.
       end
     end.
 
+  (* TODO: add support in Flocq ? *)
+  Definition EFclassify f :=
+    match f with
+    | E754_nan => NaN
+    | E754_infinity false => PInf
+    | E754_infinity true => NInf
+    | E754_zero false => NZero
+    | E754_zero true => PZero
+    | E754_finite false m _ =>
+      if (digits2_pos m =? Z.to_pos prec)%positive then PNormal
+      else PSubn
+    | E754_finite true m _ =>
+      if (digits2_pos m =? Z.to_pos prec)%positive then NNormal
+      else NSubn
+    end.
+
   Definition EFmult x y :=
     match x, y with
     | E754_nan, _ | _, E754_nan => E754_nan
@@ -335,6 +351,7 @@ Section FloatOps.
       binary_round_aux false mz ez lz
     end.
 
+  (* TODO: add support in Flocq ? *)
   Definition EFnormfr_mantissa f :=
     match f with
     | E754_finite _ mx ex =>
@@ -342,12 +359,14 @@ Section FloatOps.
     | _ => 0%N
     end.
 
+  (* TODO: add support in Flocq ? *)
   Definition EFldexp f e :=
     match f with
     | E754_finite sx mx ex => binary_round sx mx (ex+e)
     | _ => f
     end.
 
+  (* TODO: add support in Flocq ? *)
   Definition EFfrexp f :=
     match f with
     | E754_finite sx mx ex =>

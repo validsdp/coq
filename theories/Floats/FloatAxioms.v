@@ -2,6 +2,7 @@ Require Import ZArith Int63 EmulatedFloat FloatNative FloatOps.
 
 Notation valid_binary := (valid_binary prec emax).
 
+Definition EF64classify := EFclassify prec.
 Definition EF64mult := EFmult prec emax.
 Definition EF64plus := EFplus prec emax.
 Definition EF64minus := EFminus prec emax.
@@ -31,6 +32,7 @@ Definition flatten_cmp_opt c :=
   | Some Gt => FGt
   end.
 Axiom FPcompare_EFcompare : forall x y, (x ?= y)%float = flatten_cmp_opt (EFcompare (Prim2EF x) (Prim2EF y)).
+Axiom FPclassify_EFclassify : forall x, classify x = EF64classify (Prim2EF x).
 Axiom FPmult_EFmult : forall x y, Prim2EF (x * y)%float = EF64mult (Prim2EF x) (Prim2EF y).
 Axiom FPplus_EFplus : forall x y, Prim2EF (x + y)%float = EF64plus (Prim2EF x) (Prim2EF y).
 Axiom FPminus_EFminus : forall x y, Prim2EF (x - y)%float = EF64minus (Prim2EF x) (Prim2EF y).

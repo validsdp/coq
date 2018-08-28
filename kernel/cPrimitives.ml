@@ -36,6 +36,7 @@ type t =
   | Float64opp
   | Float64abs
   | Float64compare
+  | Float64classify
   | Float64add
   | Float64sub
   | Float64mul
@@ -77,15 +78,16 @@ let hash = function
   | Float64opp -> 25
   | Float64abs -> 26
   | Float64compare -> 27
-  | Float64add -> 28
-  | Float64sub -> 29
-  | Float64mul -> 30
-  | Float64div -> 31
-  | Float64sqrt -> 32
-  | Float64ofInt63 -> 33
-  | Float64normfr_mantissa -> 34
-  | Float64frshiftexp -> 35
-  | Float64ldshiftexp -> 36
+  | Float64classify -> 28
+  | Float64add -> 29
+  | Float64sub -> 30
+  | Float64mul -> 31
+  | Float64div -> 32
+  | Float64sqrt -> 33
+  | Float64ofInt63 -> 34
+  | Float64normfr_mantissa -> 35
+  | Float64frshiftexp -> 36
+  | Float64ldshiftexp -> 37
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -116,6 +118,7 @@ let to_string = function
   | Float64opp -> "fopp"
   | Float64abs -> "fabs"
   | Float64compare -> "fcompare"
+  | Float64classify -> "fclassify"
   | Float64add -> "fadd"
   | Float64sub -> "fsub"
   | Float64mul -> "fmul"
@@ -149,7 +152,7 @@ let kind = function
 
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
 
-  | Float64opp | Float64abs | Float64sqrt | Float64ofInt63
+  | Float64opp | Float64abs | Float64classify | Float64sqrt | Float64ofInt63
   | Float64normfr_mantissa | Float64frshiftexp -> [Kwhnf]
 
   | Float64compare | Float64add | Float64sub | Float64mul
@@ -167,7 +170,7 @@ let arity = function
   | Int63compare -> 2
 
   | Int63div21 | Int63addMulDiv -> 3
-  | Float64opp | Float64abs | Float64sqrt
+  | Float64opp | Float64abs | Float64classify | Float64sqrt
   | Float64ofInt63 | Float64normfr_mantissa
   | Float64frshiftexp -> 1
 
@@ -182,6 +185,7 @@ type prim_ind =
   | PIT_pair
   | PIT_cmp
   | PIT_f_cmp
+  | PIT_f_class
 
 type prim_type =
   | PT_int63
@@ -197,6 +201,7 @@ let prim_ind_to_string = function
   | PIT_pair -> "pair"
   | PIT_cmp -> "cmp"
   | PIT_f_cmp -> "f_cmp"
+  | PIT_f_class -> "f_class"
 
 let prim_type_to_string = function
   | PT_int63 -> "int63_type"

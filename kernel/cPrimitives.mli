@@ -36,6 +36,7 @@ type t =
   | Float64opp
   | Float64abs
   | Float64compare
+  | Float64classify
   | Float64add
   | Float64sub
   | Float64mul
@@ -71,6 +72,7 @@ type prim_ind =
   | PIT_pair
   | PIT_cmp
   | PIT_f_cmp
+  | PIT_f_class
 
 type prim_type =
   | PT_int63
