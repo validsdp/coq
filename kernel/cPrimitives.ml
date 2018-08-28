@@ -46,6 +46,8 @@ type t =
   | Float64normfr_mantissa
   | Float64frshiftexp
   | Float64ldshiftexp
+  | Float64next_up
+  | Float64next_down
 
 let equal (p1 : t) (p2 : t) =
   p1 == p2
@@ -88,6 +90,8 @@ let hash = function
   | Float64normfr_mantissa -> 35
   | Float64frshiftexp -> 36
   | Float64ldshiftexp -> 37
+  | Float64next_up -> 38
+  | Float64next_down -> 39
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -128,6 +132,8 @@ let to_string = function
   | Float64normfr_mantissa -> "normfr_mantissa"
   | Float64frshiftexp -> "frshiftexp"
   | Float64ldshiftexp -> "ldshiftexp"
+  | Float64next_up    -> "next_up"
+  | Float64next_down  -> "next_down"
 
 type arg_kind =
   | Kparam (* not needed for the evaluation of the primitive when it reduces *)
@@ -153,7 +159,8 @@ let kind = function
   | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
 
   | Float64opp | Float64abs | Float64classify | Float64sqrt | Float64ofInt63
-  | Float64normfr_mantissa | Float64frshiftexp -> [Kwhnf]
+  | Float64normfr_mantissa | Float64frshiftexp
+  | Float64next_up | Float64next_down -> [Kwhnf]
 
   | Float64compare | Float64add | Float64sub | Float64mul
   | Float64div | Float64ldshiftexp -> [Kwhnf;Kwhnf]
@@ -172,6 +179,7 @@ let arity = function
   | Int63div21 | Int63addMulDiv -> 3
   | Float64opp | Float64abs | Float64classify | Float64sqrt
   | Float64ofInt63 | Float64normfr_mantissa
+  | Float64next_up | Float64next_down
   | Float64frshiftexp -> 1
 
   | Float64compare | Float64add | Float64sub | Float64mul

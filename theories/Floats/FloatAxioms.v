@@ -8,6 +8,8 @@ Definition EF64plus := EFplus prec emax.
 Definition EF64minus := EFminus prec emax.
 Definition EF64div := EFdiv prec emax.
 Definition EF64sqrt := EFsqrt prec emax.
+Definition EF64succ := EFsucc prec emax.
+Definition EF64pred := EFpred prec emax.
 
 Axiom Prim2EF_valid : forall x, valid_binary (Prim2EF x) = true.
 Axiom EF2Prim_Prim2EF : forall x, EF2Prim (Prim2EF x) = x.
@@ -44,3 +46,6 @@ Axiom normfr_mantissa_spec : forall f, to_Z (normfr_mantissa f) = Z.of_N (EFnorm
 
 Axiom frshiftexp_spec : forall f, let (m,e) := frshiftexp f in (Prim2EF m, ((to_Z e) - (to_Z shift))%Z) = EFfrexp prec emax (Prim2EF f).
 Axiom ldshiftexp_spec : forall f e, Prim2EF (ldshiftexp f e) = EFldexp prec emax (Prim2EF f) ((to_Z e) - (to_Z shift)).
+
+Axiom FPnext_up_EFsucc : forall x, Prim2EF (next_up x) = EF64succ (Prim2EF x).
+Axiom FPnext_down_EFpred : forall x, Prim2EF (next_down x) = EF64pred (Prim2EF x).

@@ -303,7 +303,9 @@ let type_of_prim env t =
   | Float64sub
   | Float64mul
   | Float64div
-  | Float64sqrt -> nary_op (arity t) (float_ty ()) (float_ty ())
+  | Float64sqrt
+  | Float64next_up
+  | Float64next_down -> nary_op (arity t) (float_ty ()) (float_ty ())
   | Float64ofInt63 -> nary_op (arity t) (int_ty ()) (float_ty ())
   | Float64normfr_mantissa -> nary_op (arity t) (float_ty ()) (int_ty ())
   | Float64frshiftexp ->
