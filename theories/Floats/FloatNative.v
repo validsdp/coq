@@ -1,5 +1,9 @@
 Require Import Int63.
 
+Inductive float_comparison : Set := FEq | FLt | FGt | FNotComparable.
+
+Register float_comparison as kernel.ind_f_cmp.
+
 Primitive float := #float64_type.
 
 Declare Scope float_scope.
@@ -11,7 +15,6 @@ Notation "- x" := (opp x) : float_scope.
 
 Primitive abs := #float64_abs.
 
-Register option as kernel.ind_option.
 Primitive compare := #float64_compare.
 Notation "x ?= y" := (compare x y) (at level 70, no associativity) : float_scope.
 
