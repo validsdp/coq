@@ -27,13 +27,13 @@ let abs = abs_float
 type float_comparison = FEq | FLt | FGt | FNotComparable
 
 let compare x y =
-  if x = y then FEq
+  if x < y then FLt
   else
   (
-    if x < y then FLt
+    if x > y then FGt
     else
     (
-      if x > y then FGt
+      if x = y then FEq
       else FNotComparable (* NaN case *)
     )
   )

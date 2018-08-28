@@ -1547,14 +1547,14 @@ value coq_interprete
         CheckFloat2();
         x = Double_val(accu);
         y = Double_val(*sp++);
-        if(x == y) {
-          accu = coq_FEq;
-        }
-        else if(x < y) {
+        if(x < y) {
           accu = coq_FLt;
         }
         else if(x > y) {
           accu = coq_FGt;
+        }
+        else if(x == y) {
+          accu = coq_FEq;
         }
         else { // nan value
           accu = coq_FNotComparable;
