@@ -13,30 +13,30 @@ Definition two := Eval compute in (of_int63 2).
 
 Definition is_nan f :=
   match f ?= f with
-  | None => true
+  | FNotComparable => true
   | _ => false
   end.
 
 Definition is_zero f :=
   match f ?= zero with
-  | Some Eq => true (* note: 0 == -0 with floats *)
+  | FEq => true (* note: 0 == -0 with floats *)
   | _ => false
   end.
 
 Definition is_infinity f :=
   match f ?= infinity with
-  | Some Eq => true
-  | Some Lt => match f ?= neg_infinity with
-              | Some Eq => true
-              | _ => false
-              end
+  | FEq => true
+  | FLt => match f ?= neg_infinity with
+           | FEq => true
+           | _ => false
+           end
   | _ => false
   end.
 
 Definition get_sign f := (* + => false, - => true *)
   let f := if is_zero f then one / f else f in
   match f ?= zero with
-  | Some Gt => false
+  | FGt => false
   | _ => true
   end.
 

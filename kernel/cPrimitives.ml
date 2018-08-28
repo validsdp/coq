@@ -181,7 +181,7 @@ type prim_ind =
   | PIT_carry
   | PIT_pair
   | PIT_cmp
-  | PIT_option
+  | PIT_f_cmp
 
 type prim_type =
   | PT_int63
@@ -196,7 +196,7 @@ let prim_ind_to_string = function
   | PIT_carry -> "carry"
   | PIT_pair -> "pair"
   | PIT_cmp -> "cmp"
-  | PIT_option -> "option"
+  | PIT_f_cmp -> "f_cmp"
 
 let prim_type_to_string = function
   | PT_int63 -> "int63_type"

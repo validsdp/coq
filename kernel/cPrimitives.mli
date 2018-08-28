@@ -70,7 +70,7 @@ type prim_ind =
   | PIT_carry
   | PIT_pair
   | PIT_cmp
-  | PIT_option
+  | PIT_f_cmp
 
 type prim_type =
   | PT_int63

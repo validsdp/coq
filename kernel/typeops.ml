@@ -241,15 +241,15 @@ let type_of_prim env t =
     | Some ((ind,_),_,_) -> Constr.mkInd ind
     | None -> CErrors.user_err Pp.(str"The type compare must be registered before this primitive.")
   in
+  let f_compare_ty () =
+    match env.retroknowledge.Retroknowledge.retro_f_cmp with
+    | Some ((ind,_),_,_,_) -> Constr.mkInd ind
+    | None -> CErrors.user_err Pp.(str"The type float_comparison must be registered before this primitive.")
+  in
   let pair_ty fst_ty snd_ty =
     match env.retroknowledge.Retroknowledge.retro_pair with
     | Some (ind,_) -> Constr.mkApp(Constr.mkInd ind, [|fst_ty;snd_ty|])
     | None -> CErrors.user_err Pp.(str"The type pair must be registered before this primitive.")
-  in
-  let option_ty ty =
-    match env.retroknowledge.Retroknowledge.retro_option with
-    | Some ((ind,_),_) -> Constr.mkApp(Constr.mkInd ind, [|ty|])
-    | None -> CErrors.user_err Pp.(str"The type option must be registered before this primitive.")
   in
   let carry_ty int_ty =
     match env.retroknowledge.Retroknowledge.retro_carry with
@@ -290,9 +290,7 @@ let type_of_prim env t =
      let ret_ty = carry_ty (int_ty ()) in
      nary_op (arity t) (int_ty ()) ret_ty
   | Int63compare -> nary_op (arity t) (int_ty ()) (compare_ty ())
-  | Float64compare ->
-     let ret_ty = option_ty (compare_ty ()) in
-     nary_op (arity t) (float_ty ()) ret_ty
+  | Float64compare -> nary_op (arity t) (float_ty ()) (f_compare_ty ())
   | Float64opp
   | Float64abs
   | Float64add

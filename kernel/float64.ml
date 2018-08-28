@@ -24,17 +24,17 @@ let of_float f = f
 let opp = ( ~-. )
 let abs = abs_float
 
-type float_comparison = Eq | Lt | Gt | NotComparable
+type float_comparison = FEq | FLt | FGt | FNotComparable
 
 let compare x y =
-  if x = y then Eq
+  if x = y then FEq
   else
   (
-    if x < y then Lt
+    if x < y then FLt
     else
     (
-      if x > y then Gt
-      else NotComparable (* NaN case *)
+      if x > y then FGt
+      else FNotComparable (* NaN case *)
     )
   )
 

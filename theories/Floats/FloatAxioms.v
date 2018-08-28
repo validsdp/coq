@@ -23,7 +23,14 @@ Qed.
 
 Axiom FPopp_EFopp : forall x, Prim2EF (-x)%float = EFopp (Prim2EF x).
 Axiom FPabs_EFabs : forall x, Prim2EF (abs x) = EFabs (Prim2EF x).
-Axiom FPcompare_EFcompare : forall x y, (x ?= y)%float = EFcompare (Prim2EF x) (Prim2EF y).
+Definition flatten_cmp_opt c :=
+  match c with
+  | None => FNotComparable
+  | Some Eq => FEq
+  | Some Lt => FLt
+  | Some Gt => FGt
+  end.
+Axiom FPcompare_EFcompare : forall x y, (x ?= y)%float = flatten_cmp_opt (EFcompare (Prim2EF x) (Prim2EF y)).
 Axiom FPmult_EFmult : forall x y, Prim2EF (x * y)%float = EF64mult (Prim2EF x) (Prim2EF y).
 Axiom FPplus_EFplus : forall x y, Prim2EF (x + y)%float = EF64plus (Prim2EF x) (Prim2EF y).
 Axiom FPminus_EFminus : forall x y, Prim2EF (x - y)%float = EF64minus (Prim2EF x) (Prim2EF y).

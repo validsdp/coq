@@ -1,10 +1,13 @@
 Require Import ZArith. (* TODO remove? only used in frexp *)
 Require Import Int63.
 
-Register Inductive option as ind_option.
+Inductive float_comparison : Set := FEq | FLt | FGt | FNotComparable.
+
+Register float_comparison as kernel.ind_f_cmp.
 
 Primitive float := #float64_type.
 
+Declare Scope float_scope.
 Delimit Scope float_scope with float.
 Bind Scope float_scope with float.
 
