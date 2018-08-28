@@ -2,6 +2,7 @@ Require Import ZArith Int63 SpecFloat FloatNative FloatOps.
 
 Notation valid_binary := (valid_binary prec emax).
 
+Definition SF64classify := SFclassify prec.
 Definition SF64mult := SFmult prec emax.
 Definition SF64plus := SFplus prec emax.
 Definition SF64minus := SFminus prec emax.
@@ -30,6 +31,7 @@ Definition flatten_cmp_opt c :=
   | Some Gt => FGt
   end.
 Axiom compare_SFcompare : forall x y, (x ?= y)%float = flatten_cmp_opt (SFcompare (Prim2SF x) (Prim2SF y)).
+Axiom classify_SFclassify : forall x, classify x = SF64classify (Prim2SF x).
 Axiom mult_SFmult : forall x y, Prim2SF (x * y)%float = SF64mult (Prim2SF x) (Prim2SF y).
 Axiom plus_SFplus : forall x y, Prim2SF (x + y)%float = SF64plus (Prim2SF x) (Prim2SF y).
 Axiom minus_SFminus : forall x y, Prim2SF (x - y)%float = SF64minus (Prim2SF x) (Prim2SF y).

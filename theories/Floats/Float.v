@@ -1,3 +1,4 @@
+Require Export FloatClass.
 Require Export SpecFloat.
 Require Export FloatNative.
 Require Export FloatValues.
