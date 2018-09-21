@@ -199,7 +199,6 @@ Section FloatOps.
       end
     end.
 
-  (* TODO: add support in Flocq ? *)
   Definition EFclassify f :=
     match f with
     | E754_nan => NaN
@@ -351,75 +350,58 @@ Section FloatOps.
       binary_round_aux false mz ez lz
     end.
 
-  (* TODO: add support in Flocq ? *)
   Definition EFnormfr_mantissa f :=
     match f with
     | E754_finite _ mx ex =>
-      if Z.eqb ex (-prec)%Z then Npos mx else 0%N
+      if Z.eqb ex (-prec) then Npos mx else 0%N
     | _ => 0%N
     end.
 
-  (* TODO: add support in Flocq ? *)
   Definition EFldexp f e :=
     match f with
     | E754_finite sx mx ex => binary_round sx mx (ex+e)
     | _ => f
     end.
 
-  (* TODO: add support in Flocq ? *)
   Definition EFfrexp f :=
     match f with
     | E754_finite sx mx ex =>
-      if (digits2_pos mx =? Z.to_pos prec)%positive then
-        (E754_finite sx mx (-prec)%Z, (ex+prec)%Z)
+      if (Z.to_pos prec <=? digits2_pos mx)%positive then
+        (E754_finite sx mx (-prec), (ex+prec)%Z)
       else
         let d := (prec - Z.pos (digits2_pos mx))%Z in
-        (E754_finite sx (shift_pos (Z.to_pos d) mx) (-prec)%Z, (ex+prec-d)%Z)
+        (E754_finite sx (shift_pos (Z.to_pos d) mx) (-prec), (ex+prec-d)%Z)
     | _ => (f, (-2*emax-prec)%Z)
     end.
 
-  Definition EFsucc_pos f :=
-    match f with
-    | E754_nan => f
-    | E754_infinity _ => f
-    | E754_zero _ => E754_finite false 1 emin
-    | E754_finite _ m e =>
-      let m' := (m + 1)%positive in
-      if (digits2_pos m' <=? Z.to_pos prec)%positive then
-        E754_finite false m' e
-      else if (e <? emax - prec)%Z then
-        E754_finite false (shift_pos (Z.to_pos (prec - 1)) 1) (e + 1)
-      else
-        E754_infinity false
+  Definition EFone := binary_round false 1 0.
+
+  Definition EFulp x := EFldexp EFone (fexp (snd (EFfrexp x))).
+
+  Definition EFpred_pos x :=
+    match x with
+    | E754_finite _ mx _ =>
+      let d :=
+        if (mx~0 =? shift_pos (Z.to_pos prec) 1)%positive then
+          EFldexp EFone (fexp (snd (EFfrexp x) - 1))
+        else
+          EFulp x in
+      EFminus x d
+    | _ => x
     end.
 
-  Definition EFpred_pos f :=
-    match f with
-    | E754_nan => f
-    | E754_infinity _ =>
-      E754_finite false (shift_pos (Z.to_pos prec) 1 - 1) (emax - prec)
-    | E754_zero _ => E754_finite true 1 emin
-    | E754_finite _ 1%positive _ => E754_zero false
-    | E754_finite _ m e =>
-      let m' := (m - 1)%positive in
-      if ((Z.to_pos prec <=? digits2_pos m')%positive
-          || (e <=? emin)%Z)%bool then
-        E754_finite false m' e
-      else
-        E754_finite false (shift_pos (Z.to_pos prec) 1 - 1) (e - 1)
+  Definition EFmax_float :=
+    E754_finite false (shift_pos (Z.to_pos prec) 1 - 1) (emax - prec).
+
+  Definition EFsucc x :=
+    match x with
+    | E754_zero _ => EFldexp EFone emin
+    | E754_infinity false => x
+    | E754_infinity true => EFopp EFmax_float
+    | E754_nan => x
+    | E754_finite false _ _ => EFplus x (EFulp x)
+    | E754_finite true _ _ => EFopp (EFpred_pos (EFopp x))
     end.
 
-  (* TODO: add support in Flocq ? *)
-  Definition EFsucc f :=
-    match f with
-    | E754_nan => f
-    | E754_infinity false => EFsucc_pos f
-    | E754_infinity true => EFopp (EFpred_pos (EFopp f))
-    | E754_zero _ => EFsucc_pos f
-    | E754_finite false _ _ => EFsucc_pos f
-    | E754_finite true _ _ => EFopp (EFpred_pos (EFopp f))
-    end.
-
-  (* TODO: add support in Flocq ? *)
   Definition EFpred f := EFopp (EFsucc (EFopp f)).
 End FloatOps.
