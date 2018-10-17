@@ -56,7 +56,12 @@
 #define coq_NInf Val_int(7)
 #define coq_NaN Val_int(8)
 
-#define coq_copy_double(val) caml_copy_double(val)
+/* Beware: dst is computed two times, avoid side effects there. */
+#define Coq_copy_double(dst, val) do{                                   \
+  double Coq_copy_double_f = val;                                       \
+  Alloc_small((dst), Double_wosize, Double_tag);                        \
+  Store_double_val((dst), Coq_copy_double_f);                           \
+  }while(0);
 #define FLOAT_EXP_SHIFT (2101) /* 2*emax + prec */
 
 #endif /* _COQ_VALUES_ */
