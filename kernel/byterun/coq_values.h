@@ -56,7 +56,6 @@
 #define coq_NInf Val_int(7)
 #define coq_NaN Val_int(8)
 
-#define coq_copy_double(val) caml_copy_double(val)
 #define FLOAT_EXP_SHIFT (2101) /* 2*emax + prec */
 
 #endif /* _COQ_VALUES_ */

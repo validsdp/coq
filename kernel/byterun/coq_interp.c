@@ -192,6 +192,12 @@ if (sp - num_args < coq_stack_threshold) {                                     \
 #define AllocCarry(cond) Alloc_small(accu, 1, (cond)? coq_tag_C1 : coq_tag_C0)
 #define AllocPair() Alloc_small(accu, 2, coq_tag_pair)
 
+#define Coq_copy_double(val) do{                   \
+  double Coq_copy_double_f__ = (val);              \
+  Alloc_small(accu, Double_wosize, Double_tag);    \
+  Store_double_val(accu, Coq_copy_double_f__);     \
+  }while(0);
+
 #define Swap_accu_sp do{                        \
     value swap_accu_sp_tmp__ = accu;            \
     accu = *sp;                                 \
@@ -1564,14 +1570,14 @@ value coq_interprete
       Instruct (CHECKOPPFLOAT) {
         print_instr("CHECKOPPFLOAT");
         CheckFloat1();
-        accu = coq_copy_double(-Double_val(accu));
+        Coq_copy_double(-Double_val(accu));
         Next;
       }
 
       Instruct (CHECKABSFLOAT) {
         print_instr("CHECKABSFLOAT");
         CheckFloat1();
-        accu = coq_copy_double(fabs(Double_val(accu)));
+        Coq_copy_double(fabs(Double_val(accu)));
         Next;
       }
 
@@ -1624,42 +1630,42 @@ value coq_interprete
       Instruct (CHECKADDFLOAT) {
         print_instr("CHECKADDFLOAT");
         CheckFloat2();
-        accu = coq_copy_double(Double_val(accu) + Double_val(*sp++));
+        Coq_copy_double(Double_val(accu) + Double_val(*sp++));
         Next;
       }
 
       Instruct (CHECKSUBFLOAT) {
         print_instr("CHECKSUBFLOAT");
         CheckFloat2();
-        accu = coq_copy_double(Double_val(accu) - Double_val(*sp++));
+        Coq_copy_double(Double_val(accu) - Double_val(*sp++));
         Next;
       }
 
       Instruct (CHECKMULFLOAT) {
         print_instr("CHECKMULFLOAT");
         CheckFloat2();
-        accu = coq_copy_double(Double_val(accu) * Double_val(*sp++));
+        Coq_copy_double(Double_val(accu) * Double_val(*sp++));
         Next;
       }
 
       Instruct (CHECKDIVFLOAT) {
         print_instr("CHECKDIVFLOAT");
         CheckFloat2();
-        accu = coq_copy_double(Double_val(accu) / Double_val(*sp++));
+        Coq_copy_double(Double_val(accu) / Double_val(*sp++));
         Next;
       }
 
       Instruct (CHECKSQRTFLOAT) {
         print_instr("CHECKSQRTFLOAT");
         CheckFloat1();
-        accu = coq_copy_double(sqrt(Double_val(accu)));
+        Coq_copy_double(sqrt(Double_val(accu)));
         Next;
       }
 
       Instruct (CHECKFLOATOFINT63) {
         print_instr("CHECKFLOATOFINT63");
         CheckInt1();
-        accu = coq_copy_double(uint63_to_double(accu));
+        Coq_copy_double(uint63_to_double(accu));
         Next;
       }
 
@@ -1689,8 +1695,10 @@ value coq_interprete
         else {
           exp = 0;
         }
+        Coq_copy_double(f);
+        *--sp = accu;
         Alloc_small(accu, 2, coq_tag_pair);
-        Field(accu, 0) = coq_copy_double(f);
+        Field(accu, 0) = *sp++;
         Field(accu, 1) = Val_int(exp);
         Next;
       }
@@ -1698,22 +1706,22 @@ value coq_interprete
       Instruct (CHECKLDSHIFTEXP) {
         print_instr("CHECKLDSHIFTEXP");
         CheckPrimArgs(Is_double(accu) && Is_uint63(sp[0]), apply2);
-        accu = coq_copy_double(ldexp(Double_val(accu),
-                    uint63_of_value(*sp++) - FLOAT_EXP_SHIFT));
+        Coq_copy_double(ldexp(Double_val(accu),
+                              uint63_of_value(*sp++) - FLOAT_EXP_SHIFT));
         Next;
       }
 
       Instruct (CHECKNEXTUPFLOAT) {
         print_instr("CHECKNEXTUPFLOAT");
         CheckFloat1();
-        accu = coq_copy_double(nextafter(Double_val(accu), INFINITY));
+        Coq_copy_double(nextafter(Double_val(accu), INFINITY));
         Next;
       }
 
       Instruct (CHECKNEXTDOWNFLOAT) {
         print_instr("CHECKNEXTDOWNFLOAT");
         CheckFloat1();
-        accu = coq_copy_double(nextafter(Double_val(accu), -INFINITY));
+        Coq_copy_double(nextafter(Double_val(accu), -INFINITY));
         Next;
       }
 
