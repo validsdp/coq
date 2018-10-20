@@ -970,7 +970,7 @@ let rec extern inctx (custom,scopes as allscopes) vars r =
   | GInt i ->
      CPrim(Numeral (SPlus, NumTok.int (Uint63.to_string i)))
   | GFloat f ->
-     CPrim(String (Float64.to_string f)) (* FIXME too *)
+     CPrim(String (Float64.to_string f)) (* FIXME too (Érik pp ?) *)
 
   in insert_coercion coercion (CAst.make ?loc c)
 

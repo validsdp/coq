@@ -44,6 +44,7 @@ val of_int63 : Uint63.t -> t
 val normfr_mantissa : t -> Uint63.t
 
 (** Shifted exponent extraction *)
+val eshift : int
 val frshiftexp : t -> t * Uint63.t (* float remainder, shifted exponent *)
 val ldshiftexp : t -> Uint63.t -> t
 
