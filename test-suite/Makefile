@@ -170,6 +170,7 @@ summary:
 	  $(call summary_dir, "Miscellaneous tests", misc); \
 	  $(call summary_dir, "Complexity tests", complexity); \
 	  $(call summary_dir, "Module tests", modules); \
+	  $(call summary_dir, "Primitive tests", primitive); \
 	  $(call summary_dir, "STM tests", stm); \
 	  $(call summary_dir, "SSR tests", ssr); \
 	  $(call summary_dir, "IDE tests", ide); \
