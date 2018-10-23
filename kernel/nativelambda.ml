@@ -43,6 +43,7 @@ type lambda =
                   (* prefix, constructor Name.t, constructor tag, arguments *)
         (* A fully applied constructor *)
   | Luint         of Uint63.t
+  | Lfloat        of Float64.t
   | Lval          of Nativevalues.t
   | Lsort         of Sorts.t
   | Lind          of prefix * pinductive
@@ -119,7 +120,7 @@ let get_const_prefix env c =
 let map_lam_with_binders g f n lam =
   match lam with
   | Lrel _ | Lvar _  | Lconst _ | Lproj _ | Lval _ | Lsort _ | Lind _ | Luint _
-  | Llazy | Lforce | Lmeta _ -> lam
+  | Lfloat _ | Llazy | Lforce | Lmeta _ -> lam
   | Lprod(dom,codom) -> 
       let dom' = f n dom in
       let codom' = f n codom in
@@ -559,7 +560,7 @@ let rec lambda_of_constr cache env sigma c =
 
   | Int i -> Luint i
 
-  | Float _ -> assert false  (* native computed for primitive float not yet implemented *)
+  | Float f -> Lfloat f
 
 and lambda_of_app cache env sigma f args =
   match kind f with
