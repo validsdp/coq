@@ -283,6 +283,7 @@ type primitive =
   | Upd_cofix
   | Force_cofix
   | Mk_uint
+  | Mk_float
   | Mk_int
   | Mk_bool
   | Val_to_int
@@ -370,6 +371,7 @@ let primitive_hash = function
   | Mk_proj -> 36
   | MLarrayget -> 37
   | Mk_empty_instance -> 38
+  | Mk_float -> 39
 
 type mllambda =
   | MLlocal        of lname 
@@ -386,6 +388,7 @@ type mllambda =
                    (* prefix, constructor name, arguments *)
   | MLint          of int
   | MLuint         of Uint63.t
+  | MLfloat        of Float64.t
   | MLsetref       of string * mllambda
   | MLsequence     of mllambda * mllambda
   | MLarray        of mllambda array
@@ -452,6 +455,8 @@ let rec eq_mllambda gn1 gn2 n env1 env2 t1 t2 =
       Int.equal i1 i2
   | MLuint i1, MLuint i2 ->
       Uint63.equal i1 i2
+  | MLfloat f1, MLfloat f2 ->
+      Float64.equal f1 f2
   | MLsetref (id1, ml1), MLsetref (id2, ml2) ->
       String.equal id1 id2 &&
       eq_mllambda gn1 gn2 n env1 env2 ml1 ml2
@@ -466,7 +471,7 @@ let rec eq_mllambda gn1 gn2 n env1 env2 t1 t2 =
     eq_mllambda gn1 gn2 n env1 env2 ml1 ml2
   | (MLlocal _ | MLglobal _ | MLprimitive _ | MLlam _ | MLletrec _ | MLlet _ |
     MLapp _ | MLif _ | MLmatch _ | MLconstruct _ | MLint _ | MLuint _ |
-    MLsetref _ | MLsequence _ | MLarray _ | MLisaccu _), _ -> false
+    MLfloat _ | MLsetref _ | MLsequence _ | MLarray _ | MLisaccu _), _ -> false
 
 and eq_letrec gn1 gn2 n env1 env2 defs1 defs2 =
   let eq_def (_,args1,ml1) (_,args2,ml2) =
@@ -543,6 +548,8 @@ let rec hash_mllambda gn n env t =
       combinesmall 15 (hash_mllambda_array gn n env 1 arr)
   | MLisaccu (s, ind, c) ->
       combinesmall 16 (combine (String.hash s) (combine (ind_hash ind) (hash_mllambda gn n env c)))
+  | MLfloat f ->
+      combinesmall 17 (Float64.hash f)
 
 and hash_mllambda_letrec gn n env init defs =
   let hash_def (_,args,ml) =
@@ -573,7 +580,7 @@ let fv_lam l =
     match l with
     | MLlocal l ->
 	if LNset.mem l bind then fv else LNset.add l fv
-    | MLglobal _ | MLprimitive _  | MLint _ | MLuint _ -> fv
+    | MLglobal _ | MLprimitive _  | MLint _ | MLuint _ | MLfloat _ -> fv
     | MLlam (ln,body) ->
 	let bind = Array.fold_right LNset.add ln bind in
 	aux body bind fv
@@ -1284,6 +1291,7 @@ let ml_of_instance instance u =
      let uargs = ml_of_instance env.env_univ u in
       mkMLapp (MLglobal (Gconstruct (prefix, cn))) uargs
   | Luint i -> MLapp(MLprimitive Mk_uint, [|MLuint i|])
+  | Lfloat f -> MLapp(MLprimitive Mk_float, [|MLfloat f|])
   | Lval v ->
       let i = push_symbol (SymbValue v) in get_value_code i
   | Lsort s ->
@@ -1334,7 +1342,7 @@ let subst s l =
     let rec aux l =
       match l with
       | MLlocal id -> (try LNmap.find id s with Not_found -> l)
-      | MLglobal _ | MLprimitive _ | MLint _ | MLuint _ -> l
+      | MLglobal _ | MLprimitive _ | MLint _ | MLuint _ | MLfloat _ -> l
       | MLlam(params,body) -> MLlam(params, aux body)
       | MLletrec(defs,body) ->
 	let arec (f,params,body) = (f,params,aux body) in
@@ -1404,7 +1412,7 @@ let optimize gdef l =
   let rec optimize s l =
     match l with
     | MLlocal id -> (try LNmap.find id s with Not_found -> l)
-    | MLglobal _ | MLprimitive _ | MLint _ | MLuint _ -> l
+    | MLglobal _ | MLprimitive _ | MLint _ | MLuint _ | MLfloat _ -> l
     | MLlam(params,body) -> 
 	MLlam(params, optimize s body)
     | MLletrec(decls,body) ->
@@ -1608,6 +1616,7 @@ let pp_mllam fmt l =
           (string_of_construct prefix c) pp_cargs args
     | MLint i -> pp_int fmt i
     | MLuint i -> Format.fprintf fmt "(%s)" (Uint63.compile i)
+    | MLfloat f -> Format.fprintf fmt "(%s)" (Float64.compile f)
     | MLsetref (s, body) ->
 	Format.fprintf fmt "@[%s@ :=@\n %a@]" s pp_mllam body
     | MLsequence(l1,l2) ->
@@ -1724,6 +1733,7 @@ let pp_mllam fmt l =
     | Upd_cofix -> Format.fprintf fmt "upd_cofix"
     | Force_cofix -> Format.fprintf fmt "force_cofix"
     | Mk_uint -> Format.fprintf fmt "mk_uint"
+    | Mk_float -> Format.fprintf fmt "mk_float"
     | Mk_int -> Format.fprintf fmt "mk_int"
     | Mk_bool -> Format.fprintf fmt "mk_bool"
     | Val_to_int -> Format.fprintf fmt "val_to_int"

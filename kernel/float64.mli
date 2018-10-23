@@ -15,6 +15,8 @@ val is_nan : t -> bool
 val to_string : t -> string
 val of_string : string -> t
 
+val compile : t -> string
+
 val of_float : float -> t
 
 val opp : t -> t

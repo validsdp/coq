@@ -31,3 +31,16 @@ Check (eq_refl true <: valid_binary (Prim2EF denorm) = true).
 Check (eq_refl true <: valid_binary (Prim2EF nan) = true).
 Check (eq_refl true <: valid_binary (Prim2EF two) = true).
 Check (eq_refl true <: valid_binary (Prim2EF half) = true).
+
+Check (eq_refl true <<: valid_binary (Prim2EF zero) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF neg_zero) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF one) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF (-one)) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF infinity) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF neg_infinity) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF huge) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF tiny) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF denorm) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF nan) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF two) = true).
+Check (eq_refl true <<: valid_binary (Prim2EF half) = true).

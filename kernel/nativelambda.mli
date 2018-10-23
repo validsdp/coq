@@ -39,6 +39,7 @@ type lambda =
   | Lconstruct    of prefix * pconstructor (* prefix, constructor Name.t *)
         (* A partially applied constructor *)
   | Luint         of Uint63.t
+  | Lfloat        of Float64.t
   | Lval          of Nativevalues.t
   | Lsort         of Sorts.t
   | Lind          of prefix * pinductive

@@ -141,6 +141,11 @@ let construct_of_constr const env sigma tag typ =
 let construct_of_constr_const env sigma tag typ =
   fst (construct_of_constr true env sigma tag typ)
 
+let construct_of_constr_fconst env f typ =
+  (* let t, l = app_type env typ in *)
+  (* FIXME assert (t = Typeops.type_of_float env); *)
+  mkFloat (Float64.of_float f)
+
 let construct_of_constr_block = construct_of_constr false
 
 let build_branches_type env sigma (mind,_ as _ind) mib mip u params p =
@@ -208,6 +213,7 @@ let rec nf_val env sigma v typ =
       mkLambda(name,dom,body)
   | Vconst n -> construct_of_constr_const env sigma n typ
   | Vint64 i -> i |> Uint63.of_int64 |> mkInt
+  | Vfloat64 f -> construct_of_constr_fconst env f typ
   | Vblock b ->
       let capp,ctyp = construct_of_constr_block env sigma (block_tag b) typ in
       let args = nf_bargs env sigma b ctyp in

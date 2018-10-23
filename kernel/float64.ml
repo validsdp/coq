@@ -19,6 +19,21 @@ let is_nan f = f <> f
 let to_string f = if is_nan f then "nan" else string_of_float f
 let of_string = float_of_string
 
+(* Compiles a float to OCaml code *)
+let compile f =
+  (* TODO: use OCaml printf %.17F
+     once Coq version requirement for OCaml meets >= 4.09 *)
+  let s = match classify_float f with
+    | FP_normal | FP_subnormal | FP_zero ->
+       let s = Printf.sprintf "%.17g" f in
+       let len = String.length s in
+       let rec ml i =
+         i < len && (s.[i] = '.' || s.[i] = 'e' || s.[i] = 'E' || ml (i + 1)) in
+       if ml 0 then s else s ^ "."
+    | FP_infinite -> if 0. <= f then "infinity" else "neg_infinity"
+    | FP_nan -> "nan" in
+  "Float64.of_float (" ^ s ^ ")"
+
 let of_float f = f
 
 let opp = ( ~-. )
