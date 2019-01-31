@@ -324,6 +324,7 @@ let is_value lc =
   | Lval _ -> true
   | Lmakeblock(_,_,_,args) when Array.is_empty args -> true
   | Luint _ -> true
+  | Lfloat _ -> true
   | _ -> false
 
 let get_value lc =
@@ -332,6 +333,7 @@ let get_value lc =
   | Lmakeblock(_,_,tag,args) when Array.is_empty args ->
       Nativevalues.mk_int tag
   | Luint i -> Nativevalues.mk_uint i
+  | Lfloat f -> Nativevalues.mk_float f
   | _ -> raise Not_found
 
 let make_args start _end =
@@ -341,7 +343,12 @@ let make_args start _end =
 
 let makeblock env cn u tag args =
   if Array.for_all is_value args && Array.length args > 0 then
-    let args = Array.map get_value args in
+    let dummy_val = Obj.magic 0 in
+    let args =
+      (* Don't simplify this to Array.map, cf. the related comment in
+         function eval_to_patch, file kernel/csymtable.ml *)
+      let a = Array.make (Array.length args) dummy_val in
+      Array.iteri (fun i v -> a.(i) <- get_value v) args; a in
     Lval (Nativevalues.mk_block tag args)
   else
     let prefix = get_mind_prefix env (fst (fst cn)) in
