@@ -35,6 +35,7 @@ type value =
 
   | Proxy of value ref
   | Uint63
+  | Float64
 
 let fix (f : value -> value) : value =
   let self = ref Any in
@@ -155,7 +156,8 @@ let rec v_constr =
     [|v_fix|]; (* Fix *)
     [|v_cofix|]; (* CoFix *)
     [|v_proj;v_constr|]; (* Proj *)
-    [|Uint63|] (* Int *)
+    [|Uint63|]; (* Int *)
+    [|Float64|] (* Int *)
   |])
 
 and v_prec = Tuple ("prec_declaration",
@@ -220,7 +222,7 @@ let v_pol_arity =
   v_tuple "polymorphic_arity" [|List(Opt v_level);v_univ|]
 
 let v_primitive =
-  v_enum "primitive" 25
+  v_enum "primitive" 41  (* Number of "Primitive" declared in Int63.v and FloatNative.v *)
 
 let v_cst_def =
   v_sum "constant_def" 0
@@ -295,9 +297,9 @@ let v_ind_pack = v_tuple "mutual_inductive_body"
     Opt v_bool;
     v_typing_flags|]
 
-let v_prim_ind = v_enum "prim_ind" 4
+let v_prim_ind = v_enum "prim_ind" 6
 
-let v_prim_type = v_enum "prim_type" 1
+let v_prim_type = v_enum "prim_type" 2
 
 let v_retro_action =
   v_sum "retro_action" 0 [|

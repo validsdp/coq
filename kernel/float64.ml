@@ -141,3 +141,7 @@ let hash f =
 let total_compare f1 f2 =
   if f1 = 0. && f2 = 0. then Pervasives.compare (1. /. f1) (1. /. f2)
   else Pervasives.compare f1 f2
+
+let is_float64 t =
+  Obj.tag t = Obj.double_tag
+[@@ocaml.inline always]
