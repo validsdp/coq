@@ -72,6 +72,9 @@ Notations
 - New command `String Notation` to register string syntax for custom
   inductive types.
 
+- Numeral notations now parse decimal constants such as 1.02e+01 or 10.2.
+  Parsers added for Q and R.
+
 - Various bugs have been fixed (e.g. PR #9214 on removing spurious
   parentheses on abbreviations shortening a strict prefix of an application).
 
