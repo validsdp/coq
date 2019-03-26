@@ -3,12 +3,9 @@ Require Import Int63 FloatNative.
 Local Open Scope float_scope.
 
 (* Special values *)
+Definition one := Eval compute in (of_int63 1).
 Definition zero := Eval compute in (of_int63 0).
 Definition neg_zero := Eval compute in (-zero).
-Definition one := Eval compute in (of_int63 1).
-Definition infinity := Eval compute in (one / zero).
-Definition neg_infinity := Eval compute in (-infinity).
-Definition nan := Eval compute in (zero / zero).
 Definition two := Eval compute in (of_int63 2).
 
 Definition is_nan f :=

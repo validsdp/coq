@@ -10,7 +10,10 @@
 
 type t
 
+(** Test functions for special values to avoid calling [classify] *)
 val is_nan : t -> bool
+val is_infinity : t -> bool
+val is_neg_infinity : t -> bool
 
 val to_string : t -> string
 val of_string : string -> t

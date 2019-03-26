@@ -26,12 +26,23 @@ let interp_float ?loc (sign,n) =
 
 (* Pretty prints a float *)
 
-let uninterp_float (AnyGlobConstr i) =
-  match DAst.get i with
-  | GFloat f ->
-     (* Érik pretty printing ? *)
-     None
-  | _ -> None
+let uninterp_float (AnyGlobConstr i) = None
+  (* match DAst.get i with
+   * (\* FIXME: first version commented-out for now, to be removed:
+   *  | Gfloat f ->
+   *    match Float64.classify f with
+   *    | NaN | PInf | NInf ->
+   *      None (\* cannot produce a raw-numeral *\) *\)
+   * | GFloat f when Float64.(is_nan f || is_infinity f || is_neg_infinity f) ->
+   *    None (\* cannot produce a raw-numeral *\)
+   * | GFloat f ->
+   *    (\* same code as in constrextern.ml; could this be factored-out? *\)
+   *    let s = Float64.to_string f in
+   *    let len = String.length s in
+   *    let () = assert (len > 0) in
+   *    if s.[0] = '-' then Some (Util.SMinus, String.sub s 1 (len - 1))
+   *    else Some (Util.SPlus, s)
+   * | _ -> None *)
 
 (* Actually declares the interpreter for float *)
 
