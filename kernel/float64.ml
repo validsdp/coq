@@ -38,14 +38,14 @@ let to_string_ml f =
 let to_string f = if is_nan f then "nan" else to_string_raw f
 let of_string = float_of_string
 
-(* Compiles a float to OCaml code *)
+(* Compile a float to OCaml code *)
 let compile f =
-  let s = match classify_float f with
-    | FP_normal | FP_subnormal | FP_zero ->
-       to_string_ml f
-    | FP_infinite -> if 0. <= f then "infinity" else "neg_infinity"
-    | FP_nan -> "nan" in
-  "Float64.of_float (" ^ s ^ ")"
+  let s =
+    if is_nan f then "nan"
+    else if is_infinity f then "infinity"
+    else if is_neg_infinity f then "neg_infinity"
+    else to_string_ml f
+  in "Float64.of_float (" ^ s ^ ")"
 
 let of_float f = f
 
