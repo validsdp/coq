@@ -13,6 +13,8 @@
 type t = float
 
 let is_nan f = f <> f
+let is_infinity f = f = infinity
+let is_neg_infinity f = f = neg_infinity
 
 (* OCaml give a sign to nan values which should not be displayed as all nan are
  * considered equal *)

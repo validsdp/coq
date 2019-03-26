@@ -8,7 +8,7 @@
 
 open Names
 open Glob_term
-
+   
 (* Poor's man DECLARE PLUGIN *)
 let __coq_plugin_name = "float_syntax_plugin"
 let () = Mltop.add_known_module __coq_plugin_name
@@ -21,15 +21,8 @@ let make_path dir id = Libnames.make_path (make_dir dir) (Id.of_string id)
 (*** Parsing for float in digital notation ***)
 
 let interp_float ?loc (sign,n) =
-  let n, f, e = Util.numeral_of_string n in
-  let f = match f with None -> "" | Some f -> "." ^ f in
-  let e = match e with
-    | None -> ""
-    | Some (Util.SPlus,e) -> "e" ^ e
-    | Some (Util.SMinus,e) -> "e-" ^ e in
-  let s = Util.(match sign with SPlus -> "" | SMinus -> "-") in
-  let f = Float64.of_string (s ^ n ^ f ^ e) in
-  DAst.make ?loc (GFloat f)
+  let sign = Constrexpr.(match sign with SPlus -> "" | SMinus -> "-") in
+  DAst.make ?loc (GFloat (Float64.of_string (sign ^ NumTok.to_string n)))
 
 (* Pretty prints a float *)
 
