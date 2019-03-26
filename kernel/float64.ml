@@ -16,22 +16,33 @@ let is_nan f = f <> f
 let is_infinity f = f = infinity
 let is_neg_infinity f = f = neg_infinity
 
-(* OCaml give a sign to nan values which should not be displayed as all nan are
- * considered equal *)
-let to_string f = if is_nan f then "nan" else string_of_float f
+(* Printing a binary64 float in 17 decimal places and parsing it again
+   will yield the same float. We assume [to_string_raw] is not given a
+   [nan] as input. *)
+let to_string_raw f = Printf.sprintf "%.17g" f
+
+(* Similar helper function, adapted to compilation to OCaml. We assume
+   [to_string_raw] is not given a [nan] as input. *)
+let to_string_ml f =
+  (* Remark: one could use OCaml's sprintf "%.17F"
+     once Coq version requirement for OCaml meets >= 4.09,
+     cf. https://github.com/ocaml/ocaml/pull/2262 *)
+  let s = Printf.sprintf "%.17g" f in
+  let len = String.length s in
+  let rec ml i =
+    i < len && (s.[i] = '.' || s.[i] = 'e' || s.[i] = 'E' || ml (i + 1)) in
+  if ml 0 then s else s ^ "."
+
+(* OCaml gives a sign to nan values which should not be displayed as
+   all NaNs are considered equal here *)
+let to_string f = if is_nan f then "nan" else to_string_raw f
 let of_string = float_of_string
 
 (* Compiles a float to OCaml code *)
 let compile f =
-  (* TODO: use OCaml printf %.17F
-     once Coq version requirement for OCaml meets >= 4.09 *)
   let s = match classify_float f with
     | FP_normal | FP_subnormal | FP_zero ->
-       let s = Printf.sprintf "%.17g" f in
-       let len = String.length s in
-       let rec ml i =
-         i < len && (s.[i] = '.' || s.[i] = 'e' || s.[i] = 'E' || ml (i + 1)) in
-       if ml 0 then s else s ^ "."
+       to_string_ml f
     | FP_infinite -> if 0. <= f then "infinity" else "neg_infinity"
     | FP_nan -> "nan" in
   "Float64.of_float (" ^ s ^ ")"
