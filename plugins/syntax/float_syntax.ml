@@ -36,6 +36,7 @@ let uninterp_float (AnyGlobConstr i) =
   | GFloat f when Float64.(is_nan f || is_infinity f || is_neg_infinity f) ->
      None (* cannot produce a raw-numeral *)
   | GFloat f ->
+     (* same code as in constrextern.ml; could this be factored-out? *)
      let s = Float64.to_string f in
      let len = String.length s in
      let () = assert (len > 0) in

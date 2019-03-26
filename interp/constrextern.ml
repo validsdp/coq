@@ -765,7 +765,12 @@ let extern_float f =
   if Float64.is_nan f then CRef(q_nan (), None)
   else if Float64.is_infinity f then CRef(q_infinity (), None)
   else if Float64.is_neg_infinity f then CRef(q_neg_infinity (), None)
-  else CPrim(String (Float64.to_string f))
+  else (* same code as float_syntax.ml; could this be factored-out? *)
+    let s = Float64.to_string f in
+    let len = String.length s in
+    let () = assert (len > 0) in
+    if s.[0] = '-' then CPrim(Numeral(Util.SMinus, String.sub s 1 (len - 1)))
+    else CPrim(Numeral(Util.SPlus, s))
 
 (**********************************************************************)
 (* mapping glob_constr to constr_expr                                    *)
