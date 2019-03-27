@@ -3,14 +3,10 @@ Require Import Int63 FloatNative.
 Local Open Scope float_scope.
 
 (* Special values *)
+Definition one := Eval compute in (of_int63 1).
 Definition zero := Eval compute in (of_int63 0).
 Definition neg_zero := Eval compute in (-zero).
-Definition one := Eval compute in (of_int63 1).
 Definition two := Eval compute in (of_int63 2).
-
-Definition infinity := Eval compute in (one / zero).
-Definition neg_infinity := Eval compute in (-infinity).
-Definition nan := Eval compute in (zero / zero).
 
 Definition is_nan f :=
   match f ?= f with
@@ -42,7 +38,3 @@ Definition get_sign f := (* + => false, - => true *)
   end.
 
 Definition is_finite (x : float) := negb (is_nan x || is_infinity x).
-
-Register infinity as num.float.infinity.
-Register neg_infinity as num.float.neg_infinity.
-Register nan as num.float.nan.
