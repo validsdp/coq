@@ -97,27 +97,13 @@ Section FloatOps.
     Definition shr_fexp m e l :=
       shr (shr_record_of_loc m l) e (fexp (Zdigits2 m + e) - e).
 
-    Definition Rcompare x y :=
-      match total_order_T x y with
-      | inleft (left _) => Lt
-      | inleft (right _) => Eq
-      | inright _ => Gt
+    Definition round_nearest_even mx lx :=
+      match lx with
+      | loc_Exact => mx
+      | loc_Inexact Lt => mx
+      | loc_Inexact Eq => if Z.even mx then mx else (mx + 1)%Z
+      | loc_Inexact Gt => (mx + 1)%Z
       end.
-
-    Definition Zfloor (x : R) := (up x - 1)%Z.
-    Definition Zceil (x : R) := (- Zfloor (- x))%Z.
-
-    Definition cond_incr (b : bool) m := if b then (m + 1)%Z else m.
-
-    Definition round_N (p : bool) l :=
-      match l with
-      | loc_Exact => false
-      | loc_Inexact Lt => false
-      | loc_Inexact Eq => p
-      | loc_Inexact Gt => true
-      end.
-
-    Definition round_nearest_even mx lx := cond_incr (round_N (negb (Z.even mx)) lx) mx.
 
     Definition binary_round_aux sx mx ex lx :=
       let '(mrs', e') := shr_fexp mx ex lx in
@@ -134,11 +120,9 @@ Section FloatOps.
       | _ => (mx, ex)
       end.
 
-    Definition shl_align_fexp mx ex :=
-      shl_align mx ex (fexp (Zpos (digits2_pos mx) + ex)).
-
     Definition binary_round sx mx ex :=
-      let '(mz, ez) := shl_align_fexp mx ex in binary_round_aux sx (Zpos mz) ez loc_Exact.
+      let '(mz, ez) := shl_align mx ex (fexp (Zpos (digits2_pos mx) + ex))in
+      binary_round_aux sx (Zpos mz) ez loc_Exact.
 
     Definition binary_normalize m e szero :=
       match m with
@@ -267,25 +251,17 @@ Section FloatOps.
         ez false
     end.
 
-  Definition new_location_even nb_steps k l :=
-    if Zeq_bool k 0 then
-      match l with loc_Exact => l | _ => loc_Inexact Lt end
-    else
-      loc_Inexact
-      match Z.compare (2 * k) nb_steps with
-      | Lt => Lt
-      | Eq => match l with loc_Exact => Eq | _ => Gt end
-      | Gt => Gt
-      end.
+  Definition new_location_even nb_steps k :=
+    if Zeq_bool k 0 then loc_Exact
+    else loc_Inexact (Z.compare (2 * k) nb_steps).
 
-  Definition new_location_odd nb_steps k l :=
-    if Zeq_bool k 0 then
-      match l with loc_Exact => l | _ => loc_Inexact Lt end
+  Definition new_location_odd nb_steps k :=
+    if Zeq_bool k 0 then loc_Exact
     else
       loc_Inexact
       match Z.compare (2 * k + 1) nb_steps with
       | Lt => Lt
-      | Eq => match l with loc_Inexact l => l | loc_Exact => Lt end
+      | Eq => Lt
       | Gt => Gt
       end.
 
@@ -304,7 +280,7 @@ Section FloatOps.
       | Zneg _ => Z0
       end in
     let '(q, r) := Z.div_eucl m' m2 in
-    (q, e', new_location m2 r loc_Exact).
+    (q, e', new_location m2 r).
 
   Definition SFdiv x y :=
     match x, y with

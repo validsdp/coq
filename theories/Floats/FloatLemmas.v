@@ -47,7 +47,6 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
   clear Hmod_elim.
   revert Hv.
   unfold valid_binary, bounded, canonical_mantissa.
-  unfold shl_align_fexp.
   unfold fexp.
   rewrite Bool.andb_true_iff.
   intro H'.
@@ -99,7 +98,6 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
       replace (Z.pos (digits2_pos p) + (emin + e) - prec - (emin + e))%Z with (Z.neg p0) by lia.
       unfold shr_m, loc_of_shr_record.
       unfold round_nearest_even.
-      unfold round_N, cond_incr.
       remember (Z.pos (digits2_pos (shift_pos p0 p)) - prec)%Z as ds.
       destruct ds.
       * rewrite Z.max_l by (revert He; unfold emax, emin, prec; lia).
@@ -140,7 +138,7 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
       replace (Zpos _ + _ - _ - _)%Z with Z0 by lia.
       unfold shr_m.
       unfold loc_of_shr_record.
-      unfold round_nearest_even, cond_incr, round_N.
+      unfold round_nearest_even.
       rewrite Z.max_l by (revert H He; unfold emax, emin, prec; lia).
       replace (Zpos _ + _ - _ - _)%Z with Z0 by lia.
       replace (_ <=? _)%Z with false by (symmetry; rewrite Z.leb_gt; lia).
@@ -152,7 +150,6 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
   - rewrite Z.min_le_iff.
     intro H.
     destruct H as [ He | Habs ]; [ | revert Habs; now unfold emin, emax ].
-    unfold shl_align_fexp.
     unfold shl_align.
     assert (Hprec : (Z.pos (digits2_pos p) <= prec)%Z).
     {
@@ -274,8 +271,6 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
       {
         unfold rne.
         unfold round_nearest_even.
-        unfold cond_incr.
-        unfold round_N.
 
         assert (Hp0 : (prec < Z.pos p0)%Z) by lia.
 
@@ -308,8 +303,6 @@ Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2S
       {
         unfold rne'.
         unfold round_nearest_even.
-        unfold cond_incr.
-        unfold round_N.
 
         assert (Hp1 : (prec < Z.pos p1)%Z) by lia.
 
