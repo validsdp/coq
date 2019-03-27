@@ -769,8 +769,10 @@ let extern_float f =
     let s = Float64.to_string f in
     let len = String.length s in
     let () = assert (len > 0) in
-    if s.[0] = '-' then CPrim(Numeral(Util.SMinus, String.sub s 1 (len - 1)))
-    else CPrim(Numeral(Util.SPlus, s))
+    let sign, s =
+      if s.[0] = '-' then SMinus, String.sub s 1 (len - 1) else SPlus, s in
+    match NumTok.of_string s with
+    | None -> assert false | Some n -> CPrim(Numeral(sign, n))
 
 (**********************************************************************)
 (* mapping glob_constr to constr_expr                                    *)
