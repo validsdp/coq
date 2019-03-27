@@ -1,10 +1,10 @@
 Require Import ZArith Rdefinitions Raxioms FloatClass.
 
-Inductive emulated_float :=
-  | E754_zero : bool -> emulated_float
-  | E754_infinity : bool -> emulated_float
-  | E754_nan : emulated_float
-  | E754_finite : bool -> positive -> Z -> emulated_float.
+Inductive spec_float :=
+  | E754_zero : bool -> spec_float
+  | E754_infinity : bool -> spec_float
+  | E754_nan : spec_float
+  | E754_finite : bool -> positive -> Z -> spec_float.
 
 Section FloatOps.
   Variable prec emax : Z.
@@ -149,7 +149,7 @@ Section FloatOps.
   End Rounding.
 
   (* Define operations *)
-  Definition EFopp x :=
+  Definition SFopp x :=
     match x with
     | E754_nan => E754_nan
     | E754_infinity sx => E754_infinity (negb sx)
@@ -157,7 +157,7 @@ Section FloatOps.
     | E754_zero sx => E754_zero (negb sx)
     end.
 
-  Definition EFabs x :=
+  Definition SFabs x :=
     match x with
     | E754_nan => E754_nan
     | E754_infinity sx => E754_infinity false
@@ -165,7 +165,7 @@ Section FloatOps.
     | E754_zero sx => E754_zero false
     end.
 
-  Definition EFcompare f1 f2 :=
+  Definition SFcompare f1 f2 :=
     match f1, f2 with
     | E754_nan , _ | _, E754_nan => None
     | E754_infinity s1, E754_infinity s2 =>
@@ -199,7 +199,7 @@ Section FloatOps.
       end
     end.
 
-  Definition EFclassify f :=
+  Definition SFclassify f :=
     match f with
     | E754_nan => NaN
     | E754_infinity false => PInf
@@ -214,7 +214,7 @@ Section FloatOps.
       else NSubn
     end.
 
-  Definition EFmult x y :=
+  Definition SFmult x y :=
     match x, y with
     | E754_nan, _ | _, E754_nan => E754_nan
     | E754_infinity sx, E754_infinity sy => E754_infinity (xorb sx sy)
@@ -231,7 +231,7 @@ Section FloatOps.
 
   Definition cond_Zopp (b : bool) m := if b then Z.opp m else m.
 
-  Definition EFplus x y :=
+  Definition SFplus x y :=
     match x, y with
     | E754_nan, _ | _, E754_nan => E754_nan
     | E754_infinity sx, E754_infinity sy =>
@@ -249,7 +249,7 @@ Section FloatOps.
         ez false
     end.
 
-  Definition EFminus x y :=
+  Definition SFminus x y :=
     match x, y with
     | E754_nan, _ | _, E754_nan => E754_nan
     | E754_infinity sx, E754_infinity sy =>
@@ -292,7 +292,7 @@ Section FloatOps.
   Definition new_location nb_steps :=
     if Z.even nb_steps then new_location_even nb_steps else new_location_odd nb_steps.
 
-  Definition EFdiv_core_binary m1 e1 m2 e2 :=
+  Definition SFdiv_core_binary m1 e1 m2 e2 :=
     let d1 := Zdigits2 m1 in
     let d2 := Zdigits2 m2 in
     let e' := Z.min (fexp (d1 + e1 - (d2 + e2))) (e1 - e2) in
@@ -306,7 +306,7 @@ Section FloatOps.
     let '(q, r) := Z.div_eucl m' m2 in
     (q, e', new_location m2 r loc_Exact).
 
-  Definition EFdiv x y :=
+  Definition SFdiv x y :=
     match x, y with
     | E754_nan, _ | _, E754_nan => E754_nan
     | E754_infinity sx, E754_infinity sy => E754_nan
@@ -318,11 +318,11 @@ Section FloatOps.
     | E754_zero sx, E754_finite sy _ _ => E754_zero (xorb sx sy)
     | E754_zero sx, E754_zero sy => E754_nan
     | E754_finite sx mx ex, E754_finite sy my ey =>
-      let '(mz, ez, lz) := EFdiv_core_binary (Zpos mx) ex (Zpos my) ey in
+      let '(mz, ez, lz) := SFdiv_core_binary (Zpos mx) ex (Zpos my) ey in
       binary_round_aux (xorb sx sy) mz ez lz
     end.
 
-  Definition EFsqrt_core_binary m e :=
+  Definition SFsqrt_core_binary m e :=
     let d := Zdigits2 m in
     let e' := Z.min (fexp (Z.div2 (d + e + 1))) (Z.div2 e) in
     let s := (e - 2 * e')%Z in
@@ -338,7 +338,7 @@ Section FloatOps.
       else loc_Inexact (if Zle_bool r q then Lt else Gt) in
     (q, e', l).
 
-  Definition EFsqrt x :=
+  Definition SFsqrt x :=
     match x with
     | E754_nan => E754_nan
     | E754_infinity false => x
@@ -346,24 +346,24 @@ Section FloatOps.
     | E754_finite true _ _ => E754_nan
     | E754_zero _ => x
     | E754_finite sx mx ex =>
-      let '(mz, ez, lz) := EFsqrt_core_binary (Zpos mx) ex in
+      let '(mz, ez, lz) := SFsqrt_core_binary (Zpos mx) ex in
       binary_round_aux false mz ez lz
     end.
 
-  Definition EFnormfr_mantissa f :=
+  Definition SFnormfr_mantissa f :=
     match f with
     | E754_finite _ mx ex =>
       if Z.eqb ex (-prec) then Npos mx else 0%N
     | _ => 0%N
     end.
 
-  Definition EFldexp f e :=
+  Definition SFldexp f e :=
     match f with
     | E754_finite sx mx ex => binary_round sx mx (ex+e)
     | _ => f
     end.
 
-  Definition EFfrexp f :=
+  Definition SFfrexp f :=
     match f with
     | E754_finite sx mx ex =>
       if (Z.to_pos prec <=? digits2_pos mx)%positive then
@@ -374,34 +374,34 @@ Section FloatOps.
     | _ => (f, (-2*emax-prec)%Z)
     end.
 
-  Definition EFone := binary_round false 1 0.
+  Definition SFone := binary_round false 1 0.
 
-  Definition EFulp x := EFldexp EFone (fexp (snd (EFfrexp x))).
+  Definition SFulp x := SFldexp SFone (fexp (snd (SFfrexp x))).
 
-  Definition EFpred_pos x :=
+  Definition SFpred_pos x :=
     match x with
     | E754_finite _ mx _ =>
       let d :=
         if (mx~0 =? shift_pos (Z.to_pos prec) 1)%positive then
-          EFldexp EFone (fexp (snd (EFfrexp x) - 1))
+          SFldexp SFone (fexp (snd (SFfrexp x) - 1))
         else
-          EFulp x in
-      EFminus x d
+          SFulp x in
+      SFminus x d
     | _ => x
     end.
 
-  Definition EFmax_float :=
+  Definition SFmax_float :=
     E754_finite false (shift_pos (Z.to_pos prec) 1 - 1) (emax - prec).
 
-  Definition EFsucc x :=
+  Definition SFsucc x :=
     match x with
-    | E754_zero _ => EFldexp EFone emin
+    | E754_zero _ => SFldexp SFone emin
     | E754_infinity false => x
-    | E754_infinity true => EFopp EFmax_float
+    | E754_infinity true => SFopp SFmax_float
     | E754_nan => x
-    | E754_finite false _ _ => EFplus x (EFulp x)
-    | E754_finite true _ _ => EFopp (EFpred_pos (EFopp x))
+    | E754_finite false _ _ => SFplus x (SFulp x)
+    | E754_finite true _ _ => SFopp (SFpred_pos (SFopp x))
     end.
 
-  Definition EFpred f := EFopp (EFsucc (EFopp f)).
+  Definition SFpred f := SFopp (SFsucc (SFopp f)).
 End FloatOps.

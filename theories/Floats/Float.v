@@ -1,5 +1,5 @@
 Require Export FloatClass.
-Require Export EmulatedFloat.
+Require Export SpecFloat.
 Require Export FloatNative.
 Require Export FloatValues.
 Require Export FloatOps.

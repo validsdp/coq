@@ -1,4 +1,4 @@
-Require Import ZArith Int63 EmulatedFloat FloatNative FloatValues.
+Require Import ZArith Int63 SpecFloat FloatNative FloatValues.
 
 (* Properties of the Binary64 IEEE 754 format *)
 Definition prec := 53%Z.
@@ -15,7 +15,7 @@ Definition ldexp f e :=
 
 Definition ulp f := ldexp one (fexp prec emax (snd (frexp f))).
 
-Definition Prim2EF f :=
+Definition Prim2SF f :=
   if is_nan f then E754_nan
   else if is_zero f then E754_zero (get_sign f)
        else if is_infinity f then E754_infinity (get_sign f)
@@ -28,7 +28,7 @@ Definition Prim2EF f :=
               | Zneg _ | Z0 => E754_zero false (* must never occur *)
               end.
 
-Definition EF2Prim ef :=
+Definition SF2Prim ef :=
   match ef with
   | E754_nan => nan
   | E754_zero false => zero

@@ -1,10 +1,10 @@
-Require Import ZArith Int63 EmulatedFloat FloatNative FloatOps FloatAxioms FloatValues.
+Require Import ZArith Int63 SpecFloat FloatNative FloatOps FloatAxioms FloatValues.
 
 Lemma shift_value : [|shift|]%int63 = (2*emax + prec)%Z.
   reflexivity.
 Qed.
 
-Theorem frexp_spec : forall f, let (m,e) := frexp f in (Prim2EF m, e) = EFfrexp prec emax (Prim2EF f).
+Theorem frexp_spec : forall f, let (m,e) := frexp f in (Prim2SF m, e) = SFfrexp prec emax (Prim2SF f).
   intro.
   unfold frexp.
   case_eq (frshiftexp f).
@@ -15,13 +15,13 @@ Qed.
 
 Require Import Psatz.
 
-Theorem ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2EF f) e.
+Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2SF f) e.
   intros.
   unfold ldexp.
   rewrite (ldshiftexp_spec f _).
-  assert (Hv := Prim2EF_valid f).
-  destruct (Prim2EF f); auto.
-  unfold EFldexp.
+  assert (Hv := Prim2SF_valid f).
+  destruct (Prim2SF f); auto.
+  unfold SFldexp.
   unfold binary_round.
   assert (Hmod_elim :  forall e, ([| of_Z (Z.max (Z.min e (emax - emin)) (emin - emax - 1)) + shift |]%int63 - [|shift|]%int63 = Z.max (Z.min e (emax - emin)) (emin - emax - 1))%Z).
   {
@@ -248,7 +248,7 @@ Theorem ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2E
       unfold shr_1 at 1.
       remember (iter_pos _ _ _) as shr_p0m1.
       destruct shr_p0m1.
-      unfold EmulatedFloat.shr_m in Hshr_p0m1.
+      unfold SpecFloat.shr_m in Hshr_p0m1.
       now rewrite Hshr_p0m1.
       rewrite Pos.add_1_r.
       rewrite Pos.sub_1_r.
@@ -285,7 +285,7 @@ Theorem ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2E
         revert Hshr_p0_r Hshr_p0.
         set (shr_p0 := iter_pos shr_1 _ _).
         destruct shr_p0.
-        unfold EmulatedFloat.shr_r, EmulatedFloat.shr_m.
+        unfold SpecFloat.shr_r, SpecFloat.shr_m.
         intros Hshr_r Hshr_m.
         rewrite Hshr_r, Hshr_m.
         now destruct shr_s.
@@ -319,7 +319,7 @@ Theorem ldexp_spec : forall f e, Prim2EF (ldexp f e) = EFldexp prec emax (Prim2E
         revert Hshr_p0_r Hshr_p0.
         set (shr_p1 := iter_pos shr_1 _ _).
         destruct shr_p1.
-        unfold EmulatedFloat.shr_r, EmulatedFloat.shr_m.
+        unfold SpecFloat.shr_r, SpecFloat.shr_m.
         intros Hshr_r Hshr_m.
         rewrite Hshr_r, Hshr_m.
         now destruct shr_s.
