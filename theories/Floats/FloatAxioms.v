@@ -24,8 +24,8 @@ Theorem SF2Prim_inj : forall x y, SF2Prim x = SF2Prim y -> valid_binary x = true
 Qed.
 
 
-Axiom FPopp_SFopp : forall x, Prim2SF (-x)%float = SFopp (Prim2SF x).
-Axiom FPabs_SFabs : forall x, Prim2SF (abs x) = SFabs (Prim2SF x).
+Axiom opp_SFopp : forall x, Prim2SF (-x)%float = SFopp (Prim2SF x).
+Axiom abs_SFabs : forall x, Prim2SF (abs x) = SFabs (Prim2SF x).
 Definition flatten_cmp_opt c :=
   match c with
   | None => FNotComparable
@@ -33,19 +33,19 @@ Definition flatten_cmp_opt c :=
   | Some Lt => FLt
   | Some Gt => FGt
   end.
-Axiom FPcompare_SFcompare : forall x y, (x ?= y)%float = flatten_cmp_opt (SFcompare (Prim2SF x) (Prim2SF y)).
-Axiom FPclassify_SFclassify : forall x, classify x = SF64classify (Prim2SF x).
-Axiom FPmult_SFmult : forall x y, Prim2SF (x * y)%float = SF64mult (Prim2SF x) (Prim2SF y).
-Axiom FPplus_SFplus : forall x y, Prim2SF (x + y)%float = SF64plus (Prim2SF x) (Prim2SF y).
-Axiom FPminus_SFminus : forall x y, Prim2SF (x - y)%float = SF64minus (Prim2SF x) (Prim2SF y).
-Axiom FPdiv_SFdiv : forall x y, Prim2SF (x / y)%float = SF64div (Prim2SF x) (Prim2SF y).
-Axiom FPsqrt_SFsqrt : forall x, Prim2SF (sqrt x) = SF64sqrt (Prim2SF x).
+Axiom compare_SFcompare : forall x y, (x ?= y)%float = flatten_cmp_opt (SFcompare (Prim2SF x) (Prim2SF y)).
+Axiom classify_SFclassify : forall x, classify x = SF64classify (Prim2SF x).
+Axiom mult_SFmult : forall x y, Prim2SF (x * y)%float = SF64mult (Prim2SF x) (Prim2SF y).
+Axiom plus_SFplus : forall x y, Prim2SF (x + y)%float = SF64plus (Prim2SF x) (Prim2SF y).
+Axiom minus_SFminus : forall x y, Prim2SF (x - y)%float = SF64minus (Prim2SF x) (Prim2SF y).
+Axiom div_SFdiv : forall x y, Prim2SF (x / y)%float = SF64div (Prim2SF x) (Prim2SF y).
+Axiom sqrt_SFsqrt : forall x, Prim2SF (sqrt x) = SF64sqrt (Prim2SF x).
 
 Axiom of_int63_spec : forall n, Prim2SF (of_int63 n) = binary_normalize prec emax (to_Z n) 0%Z false.
-Axiom normfr_mantissa_spec : forall f, to_Z (normfr_mantissa f) = Z.of_N (SFnormfr_mantissa prec (Prim2SF f)).
+Axiom normfr_mantissa_SFnormfr_mantissa : forall f, to_Z (normfr_mantissa f) = Z.of_N (SFnormfr_mantissa prec (Prim2SF f)).
 
-Axiom frshiftexp_spec : forall f, let (m,e) := frshiftexp f in (Prim2SF m, ((to_Z e) - (to_Z shift))%Z) = SFfrexp prec emax (Prim2SF f).
-Axiom ldshiftexp_spec : forall f e, Prim2SF (ldshiftexp f e) = SFldexp prec emax (Prim2SF f) ((to_Z e) - (to_Z shift)).
+Axiom frshiftexp_SFfrexp : forall f, let (m,e) := frshiftexp f in (Prim2SF m, ((to_Z e) - (to_Z shift))%Z) = SFfrexp prec emax (Prim2SF f).
+Axiom ldshiftexp_SFldexp : forall f e, Prim2SF (ldshiftexp f e) = SFldexp prec emax (Prim2SF f) ((to_Z e) - (to_Z shift)).
 
-Axiom FPnext_up_SFsucc : forall x, Prim2SF (next_up x) = SF64succ (Prim2SF x).
-Axiom FPnext_down_SFpred : forall x, Prim2SF (next_down x) = SF64pred (Prim2SF x).
+Axiom next_up_SFsucc : forall x, Prim2SF (next_up x) = SF64succ (Prim2SF x).
+Axiom next_down_SFpred : forall x, Prim2SF (next_down x) = SF64pred (Prim2SF x).
