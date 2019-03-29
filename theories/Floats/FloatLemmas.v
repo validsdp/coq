@@ -9,7 +9,7 @@ Theorem frexp_spec : forall f, let (m,e) := frexp f in (Prim2SF m, e) = SFfrexp 
   unfold frexp.
   case_eq (frshiftexp f).
   intros.
-  assert (H' := frshiftexp_spec f).
+  assert (H' := frshiftexp_SFfrexp f).
   now rewrite H in H'.
 Qed.
 
@@ -18,7 +18,7 @@ Require Import Psatz.
 Theorem ldexp_spec : forall f e, Prim2SF (ldexp f e) = SFldexp prec emax (Prim2SF f) e.
   intros.
   unfold ldexp.
-  rewrite (ldshiftexp_spec f _).
+  rewrite (ldshiftexp_SFldexp f _).
   assert (Hv := Prim2SF_valid f).
   destruct (Prim2SF f); auto.
   unfold SFldexp.
