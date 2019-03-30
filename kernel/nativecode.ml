@@ -279,6 +279,7 @@ type primitive =
   | Mk_var of Id.t
   | Mk_proj
   | Is_int
+  | Is_float
   | Cast_accu
   | Upd_cofix
   | Force_cofix
@@ -290,6 +291,7 @@ type primitive =
   | Mk_meta
   | Mk_evar
   | MLand
+  | MLnot
   | MLle
   | MLlt
   | MLinteq
@@ -372,6 +374,8 @@ let primitive_hash = function
   | MLarrayget -> 37
   | Mk_empty_instance -> 38
   | Mk_float -> 39
+  | Is_float -> 40
+  | MLnot -> 41
 
 type mllambda =
   | MLlocal        of lname 
@@ -762,7 +766,7 @@ type env =
       env_named : (Id.t * mllambda) list ref;
       env_univ : lname option}
 
-let empty_env univ () =
+let empty_env univ =
   { env_rel = [];
     env_bound = 0;
     env_urel = ref [];
@@ -956,25 +960,29 @@ type prim_aux =
   | PAprim of string * pconstant * CPrimitives.t * prim_aux array
   | PAml of mllambda
 
-let add_check cond args =
-  let aux cond a = 
+let add_check cond targs args =
+  let aux cond t a =
     match a with
     | PAml(MLint _) -> cond
     | PAml ml ->
        (* FIXME: use explicit equality function *)
-       if List.mem ml cond then cond else ml::cond 
+       if List.mem (t, ml) cond then cond else (t, ml)::cond
     | _ -> cond
   in
-  Array.fold_left aux cond args
+  Array.fold_left2 aux cond targs args
 
 let extract_prim ml_of l =
   let decl = ref [] in
   let cond = ref [] in
+  let type_args p =
+    let rec aux = function [] | [_] -> [] | h :: t -> h :: aux t in
+    Array.of_list (aux (CPrimitives.types p)) in
   let rec aux l =
     match l with
     | Lprim(prefix,kn,p,args) ->
+      let targs = type_args p in
       let args = Array.map aux args in
-      cond := add_check !cond args;
+      cond := add_check !cond targs args;
       PAprim(prefix,kn,p,args)
     | Lrel _ | Lvar _ | Luint _ | Lval _ | Lconst _ -> PAml (ml_of l)
     | _ ->
@@ -1008,15 +1016,35 @@ let compile_prim decl cond paux =
   let compile_cond cond paux =
     match cond with
     | [] -> opt_prim_aux paux
-    | [c1] ->
+    | [CPrimitives.(PITT_type PT_int63), c1] ->
       MLif(app_prim Is_int [|c1|], opt_prim_aux paux, naive_prim_aux paux)
-    | c1::cond ->
-      let cond =
-        List.fold_left
-          (fun ml c -> app_prim MLland [| ml; cast_to_int c|])
-          (app_prim MLland [| cast_to_int c1; MLint 0 |]) cond in
-      let cond = app_prim MLmagic [|cond|] in
-      MLif(cond, naive_prim_aux paux, opt_prim_aux paux) in
+    | _ ->
+      let ci, cf =
+        let is_int =
+          function CPrimitives.(PITT_type PT_int63), _ -> true | _ -> false in
+        List.partition is_int cond in
+      let condi =
+        let cond =
+          List.fold_left
+            (fun ml (_, c) -> app_prim MLland [| ml; cast_to_int c|])
+            (MLint 0) ci in
+        app_prim MLmagic [|cond|] in
+      let condf = match cf with
+        | [] -> MLint 0
+        | [_, c1] -> app_prim Is_float [|c1|]
+        | (_, c1) :: condf ->
+           List.fold_left
+             (fun ml (_, c) -> app_prim MLand [| ml; app_prim Is_float [|c|]|])
+             (app_prim Is_float [|c1|]) condf in
+      match ci, cf with
+      | [], [] -> opt_prim_aux paux
+      | _ :: _, [] ->
+         MLif(condi, naive_prim_aux paux, opt_prim_aux paux)
+      | [], _ :: _ ->
+         MLif(condf, opt_prim_aux paux, naive_prim_aux paux)
+      | _ :: _, _ :: _ ->
+         let cond = app_prim MLand [|condf; app_prim MLnot [|condi|]|] in
+         MLif(cond, opt_prim_aux paux, naive_prim_aux paux) in
 
   let add_decl decl body =
     List.fold_left (fun body (x,d) -> MLlet(x,d,body)) body decl in
@@ -1093,14 +1121,14 @@ let ml_of_instance instance u =
          (* Remark: if we do not want to compile the predicate we 
             should a least compute the fv, then store the lambda representation
             of the predicate (not the mllambda) *)
-      let env_p = empty_env env.env_univ () in
+      let env_p = empty_env env.env_univ in
       let pn = fresh_gpred l in
       let mlp = ml_of_lam env_p l p in
       let mlp = generalize_fv env_p mlp in
       let (pfvn,pfvr) = !(env_p.env_named), !(env_p.env_urel) in
       let pn = push_global_let pn mlp in
       (* Compilation of the case *)
-      let env_c = empty_env env.env_univ () in
+      let env_c = empty_env env.env_univ in
       let a_uid = fresh_lname Anonymous in
       let la_uid = MLlocal a_uid in
       (* compilation of branches *)
@@ -1151,7 +1179,7 @@ let ml_of_instance instance u =
 	   start
       *)
       (* Compilation of type *)
-      let env_t = empty_env env.env_univ () in
+      let env_t = empty_env env.env_univ in
       let ml_t = Array.map (ml_of_lam env_t l) tt in
       let params_t = fv_params env_t in
       let args_t = fv_args env !(env_t.env_named) !(env_t.env_urel) in
@@ -1160,7 +1188,7 @@ let ml_of_instance instance u =
       let mk_type = MLapp(MLglobal gft, args_t) in
       (* Compilation of norm_i *)
       let ndef = Array.length ids in
-      let lf,env_n = push_rels (empty_env env.env_univ ()) ids in
+      let lf,env_n = push_rels (empty_env env.env_univ) ids in
       let t_params = Array.make ndef [||] in
       let t_norm_f = Array.make ndef (Gnorm (l,-1)) in
       let mk_let _envi (id,def) t = MLlet (id,def,t) in
@@ -1217,7 +1245,7 @@ let ml_of_instance instance u =
       MLletrec(Array.mapi mkrec lf, lf_args.(start))
   | Lcofix (start, (ids, tt, tb)) -> 
       (* Compilation of type *)
-      let env_t = empty_env env.env_univ () in
+      let env_t = empty_env env.env_univ in
       let ml_t = Array.map (ml_of_lam env_t l) tt in
       let params_t = fv_params env_t in
       let args_t = fv_args env !(env_t.env_named) !(env_t.env_urel) in
@@ -1226,7 +1254,7 @@ let ml_of_instance instance u =
       let mk_type = MLapp(MLglobal gft, args_t) in
       (* Compilation of norm_i *) 
       let ndef = Array.length ids in
-      let lf,env_n = push_rels (empty_env env.env_univ ()) ids in
+      let lf,env_n = push_rels (empty_env env.env_univ) ids in
       let t_params = Array.make ndef [||] in
       let t_norm_f = Array.make ndef (Gnorm (l,-1)) in
       let ml_of_fix i body =
@@ -1309,7 +1337,7 @@ let ml_of_instance instance u =
   | Lforce -> MLglobal (Ginternal "Lazy.force")
 
 let mllambda_of_lambda univ auxdefs l t =
-  let env = empty_env univ () in
+  let env = empty_env univ in
   global_stack := auxdefs;
   let ml = ml_of_lam env l t in
   let fv_rel = !(env.env_urel) in
@@ -1729,6 +1757,7 @@ let pp_mllam fmt l =
         Format.fprintf fmt "mk_var_accu (Names.Id.of_string \"%s\")" (string_of_id id)
     | Mk_proj -> Format.fprintf fmt "mk_proj_accu"
     | Is_int -> Format.fprintf fmt "is_int"
+    | Is_float -> Format.fprintf fmt "is_float"
     | Cast_accu -> Format.fprintf fmt "cast_accu"
     | Upd_cofix -> Format.fprintf fmt "upd_cofix"
     | Force_cofix -> Format.fprintf fmt "force_cofix"
@@ -1740,6 +1769,7 @@ let pp_mllam fmt l =
     | Mk_meta -> Format.fprintf fmt "mk_meta_accu"
     | Mk_evar -> Format.fprintf fmt "mk_evar_accu"
     | MLand -> Format.fprintf fmt "(&&)"
+    | MLnot -> Format.fprintf fmt "not"
     | MLle -> Format.fprintf fmt "(<=)"
     | MLlt -> Format.fprintf fmt "(<)"
     | MLinteq -> Format.fprintf fmt "(==)"

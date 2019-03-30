@@ -128,7 +128,9 @@ val str_decode : string -> 'a
 (** Support for machine integers *)
 
 val val_to_int : t -> int
+
 val is_int : t -> bool
+[@@ocaml.inline always]
 
 (* function with check *)
 val head0 : t -> t -> t
@@ -239,6 +241,7 @@ val no_check_compare : t -> t -> t
 (** Support for machine floating point values *)
 
 val is_float : t -> bool
+[@@ocaml.inline always]
 
 val fopp : t -> t -> t
 val fabs : t -> t -> t

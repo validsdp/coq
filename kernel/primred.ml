@@ -31,13 +31,13 @@ let add_retroknowledge env action =
           | None -> ((ind,1), (ind,2))
           | Some (((ind',_),_) as t) -> assert (eq_ind ind ind'); t in
         { retro with retro_bool = Some r }
-      | PIT_carry ->
+      | PIT_carry _ ->
         let r =
           match retro.retro_carry with
           | None -> ((ind,1), (ind,2))
           | Some (((ind',_),_) as t) -> assert (eq_ind ind ind'); t in
         { retro with retro_carry = Some r }
-      | PIT_pair ->
+      | PIT_pair _ ->
         let r =
           match retro.retro_pair with
           | None -> (ind,1)

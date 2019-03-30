@@ -261,59 +261,27 @@ let type_of_prim env t =
     | Some ((ind,_),_) -> Constr.mkApp(Constr.mkInd ind, [|int_ty|])
     | None -> CErrors.user_err Pp.(str"The type carry must be registered before this primitive.")
   in
-  let rec nary_op arity arg_ty ret_ty =
-    if Int.equal arity 0 then ret_ty
-      else Constr.mkProd(Context.nameR (Id.of_string "x"), arg_ty, nary_op (arity-1) arg_ty ret_ty)
-  in
   let open CPrimitives in
-  match t with
-  | Int63head0
-  | Int63tail0
-  | Int63add
-  | Int63sub
-  | Int63mul
-  | Int63div
-  | Int63mod
-  | Int63lsr
-  | Int63lsl
-  | Int63land
-  | Int63lor
-  | Int63lxor
-  | Int63addMulDiv -> nary_op (arity t) (int_ty ()) (int_ty ())
-  | Int63eq
-  | Int63lt
-  | Int63le -> nary_op (arity t) (int_ty ()) (bool_ty ())
-  | Int63mulc
-  | Int63div21
-  | Int63diveucl ->
-     let ret_ty = (pair_ty (int_ty ()) (int_ty ())) in
-     nary_op (arity t) (int_ty ()) ret_ty
-  | Int63addc
-  | Int63subc
-  | Int63addCarryC
-  | Int63subCarryC ->
-     let ret_ty = carry_ty (int_ty ()) in
-     nary_op (arity t) (int_ty ()) ret_ty
-  | Int63compare -> nary_op (arity t) (int_ty ()) (compare_ty ())
-  | Float64compare -> nary_op (arity t) (float_ty ()) (f_compare_ty ())
-  | Float64classify -> nary_op (arity t) (float_ty ()) (f_class_ty ())
-  | Float64opp
-  | Float64abs
-  | Float64add
-  | Float64sub
-  | Float64mul
-  | Float64div
-  | Float64sqrt
-  | Float64next_up
-  | Float64next_down -> nary_op (arity t) (float_ty ()) (float_ty ())
-  | Float64ofInt63 -> nary_op (arity t) (int_ty ()) (float_ty ())
-  | Float64normfr_mantissa -> nary_op (arity t) (float_ty ()) (int_ty ())
-  | Float64frshiftexp ->
-     let ret_ty = pair_ty (float_ty ()) (int_ty ()) in
-     nary_op (arity t) (float_ty ()) ret_ty
-  | Float64ldshiftexp ->
-     let ret_ty = nary_op 1 (int_ty ()) (float_ty ()) in
-     nary_op 1 (float_ty ()) ret_ty
+  let tr_prim_type = function
+    | PT_int63 -> int_ty ()
+    | PT_float64 -> float_ty () in
+  let tr_ind = function
+    | PIT_bool -> bool_ty ()
+    | PIT_carry t -> carry_ty (tr_prim_type t)
+    | PIT_pair (t1, t2) -> pair_ty (tr_prim_type t1) (tr_prim_type t2)
+    | PIT_cmp -> compare_ty ()
+    | PIT_f_cmp -> f_compare_ty ()
+    | PIT_f_class -> f_class_ty () in
+  let tr_type = function
+    | PITT_ind i -> tr_ind i
+    | PITT_type t -> tr_prim_type t in
+  let rec nary_op = function
+    | [] -> assert false
+    | [ret_ty] -> tr_type ret_ty
+    | arg_ty :: r ->
+       let arg_ty = tr_type arg_ty in
+       Constr.mkProd(Context.nameR (Id.of_string "x"), arg_ty, nary_op r) in
+  nary_op (types t)
 
 let type_of_prim_or_type env = let open CPrimitives in
   function

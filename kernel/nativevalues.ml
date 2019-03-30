@@ -250,6 +250,7 @@ let kind_of_value (v:t) =
 let is_int (x:t) =
   let o = Obj.repr x in
   Obj.is_int o || Int.equal (Obj.tag o) Obj.custom_tag
+[@@ocaml.inline always]
 
 let val_to_int (x:t) = (Obj.magic x : int)
 [@@ocaml.inline always]
@@ -502,11 +503,13 @@ let print x =
 let is_float (x:t) =
   let o = Obj.repr x in
   Int.equal (Obj.tag o) Obj.double_tag
+[@@ocaml.inline always]
 
 let to_float (x:t) = (Obj.magic x : Float64.t)
 
 let no_check_fopp x =
   mk_float (Float64.opp (to_float x))
+[@@ocaml.inline always]
 
 let fopp accu x =
   if is_float x then no_check_fopp x
@@ -514,6 +517,7 @@ let fopp accu x =
 
 let no_check_fabs x =
   mk_float (Float64.abs (to_float x))
+[@@ocaml.inline always]
 
 let fabs accu x =
   if is_float x then no_check_fabs x
@@ -529,6 +533,7 @@ type coq_fcmp =
 let no_check_fcompare x y =
   let c = Float64.compare (to_float x) (to_float y) in
   (Obj.magic c:t)
+[@@ocaml.inline always]
 
 let fcompare accu x y =
   if is_float x && is_float y then no_check_fcompare x y
@@ -549,6 +554,7 @@ type coq_fclass =
 let no_check_fclassify x =
   let c = Float64.classify (to_float x) in
   (Obj.magic c:t)
+[@@ocaml.inline always]
 
 let fclassify accu x =
   if is_float x then no_check_fclassify x
@@ -556,6 +562,7 @@ let fclassify accu x =
 
 let no_check_fadd x y =
   mk_float (Float64.add (to_float x) (to_float y))
+[@@ocaml.inline always]
 
 let fadd accu x y =
   if is_float x && is_float y then no_check_fadd x y
@@ -563,6 +570,7 @@ let fadd accu x y =
 
 let no_check_fsub x y =
   mk_float (Float64.sub (to_float x) (to_float y))
+[@@ocaml.inline always]
 
 let fsub accu x y =
   if is_float x && is_float y then no_check_fsub x y
@@ -570,6 +578,7 @@ let fsub accu x y =
 
 let no_check_fmul x y =
   mk_float (Float64.mul (to_float x) (to_float y))
+[@@ocaml.inline always]
 
 let fmul accu x y =
   if is_float x && is_float y then no_check_fmul x y
@@ -577,6 +586,7 @@ let fmul accu x y =
 
 let no_check_fdiv x y =
   mk_float (Float64.div (to_float x) (to_float y))
+[@@ocaml.inline always]
 
 let fdiv accu x y =
   if is_float x && is_float y then no_check_fdiv x y
@@ -584,6 +594,7 @@ let fdiv accu x y =
 
 let no_check_fsqrt x =
   mk_float (Float64.sqrt (to_float x))
+[@@ocaml.inline always]
 
 let fsqrt accu x =
   if is_float x then no_check_fsqrt x
@@ -591,6 +602,7 @@ let fsqrt accu x =
 
 let no_check_float_of_int x =
   mk_float (Float64.of_int63 (to_uint x))
+[@@ocaml.inline always]
 
 let float_of_int accu x =
   if is_int x then no_check_float_of_int x
@@ -598,6 +610,7 @@ let float_of_int accu x =
 
 let no_check_normfr_mantissa x =
   mk_uint (Float64.normfr_mantissa (to_float x))
+[@@ocaml.inline always]
 
 let normfr_mantissa accu x =
   if is_float x then no_check_normfr_mantissa x
@@ -606,6 +619,7 @@ let normfr_mantissa accu x =
 let no_check_frshiftexp x =
   let f, e = Float64.frshiftexp (to_float x) in
   (Obj.magic (PPair(mk_float f, mk_uint e)):t)
+[@@ocaml.inline always]
 
 let frshiftexp accu x =
   if is_float x then no_check_frshiftexp x
@@ -613,6 +627,7 @@ let frshiftexp accu x =
 
 let no_check_ldshiftexp x e =
   mk_float (Float64.ldshiftexp (to_float x) (to_uint e))
+[@@ocaml.inline always]
 
 let ldshiftexp accu x e =
   if is_float x && is_int e then no_check_ldshiftexp x e
@@ -620,6 +635,7 @@ let ldshiftexp accu x e =
 
 let no_check_next_up x =
   mk_float (Float64.next_up (to_float x))
+[@@ocaml.inline always]
 
 let next_up accu x =
   if is_float x then no_check_next_up x
@@ -627,6 +643,7 @@ let next_up accu x =
 
 let no_check_next_down x =
   mk_float (Float64.next_down (to_float x))
+[@@ocaml.inline always]
 
 let next_down accu x =
   if is_float x then no_check_next_down x

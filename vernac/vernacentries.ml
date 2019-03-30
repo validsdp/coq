@@ -2049,8 +2049,8 @@ let vernac_register ~pstate qid r =
         user_err Pp.(str "Registering a kernel type is not allowed in sections");
       let pind = match Id.to_string id with
         | "ind_bool" -> CPrimitives.PIT_bool
-        | "ind_carry" -> CPrimitives.PIT_carry
-        | "ind_pair" -> CPrimitives.PIT_pair
+        | "ind_carry" -> CPrimitives.(PIT_carry PT_int63)
+        | "ind_pair" -> CPrimitives.(PIT_pair (PT_int63, PT_int63))
         | "ind_cmp" -> CPrimitives.PIT_cmp
         | "ind_f_cmp" -> CPrimitives.PIT_f_cmp
         | "ind_f_class" -> CPrimitives.PIT_f_class

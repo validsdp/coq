@@ -135,6 +135,51 @@ let to_string = function
   | Float64next_up    -> "next_up"
   | Float64next_down  -> "next_down"
 
+type prim_type =
+  | PT_int63
+  | PT_float64
+
+type prim_ind =
+  | PIT_bool
+  | PIT_carry of prim_type
+  | PIT_pair of prim_type * prim_type
+  | PIT_cmp
+  | PIT_f_cmp
+  | PIT_f_class
+
+type ind_or_type =
+  | PITT_ind of prim_ind
+  | PITT_type of prim_type
+
+let types =
+  let int_ty = PITT_type PT_int63 in
+  let float_ty = PITT_type PT_float64 in
+  function
+  | Int63head0 | Int63tail0 -> [int_ty; int_ty]
+  | Int63add | Int63sub | Int63mul
+  | Int63div | Int63mod
+  | Int63lsr | Int63lsl
+  | Int63land | Int63lor | Int63lxor -> [int_ty; int_ty; int_ty]
+  | Int63addc | Int63subc | Int63addCarryC | Int63subCarryC ->
+     [int_ty; int_ty; PITT_ind (PIT_carry PT_int63)]
+  | Int63mulc | Int63diveucl ->
+     [int_ty; int_ty; PITT_ind (PIT_pair (PT_int63, PT_int63))]
+  | Int63eq | Int63lt | Int63le -> [int_ty; int_ty; PITT_ind PIT_bool]
+  | Int63compare -> [int_ty; int_ty; PITT_ind PIT_cmp]
+  | Int63div21 ->
+     [int_ty; int_ty; int_ty; PITT_ind (PIT_pair (PT_int63, PT_int63))]
+  | Int63addMulDiv -> [int_ty; int_ty; int_ty; int_ty]
+  | Float64opp | Float64abs | Float64sqrt
+  | Float64next_up | Float64next_down -> [float_ty; float_ty]
+  | Float64classify -> [float_ty; PITT_ind PIT_f_class]
+  | Float64ofInt63 -> [int_ty; float_ty]
+  | Float64normfr_mantissa -> [float_ty; int_ty]
+  | Float64frshiftexp -> [float_ty; PITT_ind (PIT_pair (PT_float64, PT_int63))]
+  | Float64compare -> [float_ty; float_ty; PITT_ind PIT_f_cmp]
+  | Float64add | Float64sub | Float64mul
+  | Float64div -> [float_ty; float_ty; float_ty]
+  | Float64ldshiftexp -> [float_ty; int_ty; float_ty]
+
 type arg_kind =
   | Kparam (* not needed for the evaluation of the primitive when it reduces *)
   | Kwhnf  (* need to be reduced in whnf before reducing the primitive *)
@@ -145,59 +190,13 @@ type args_red = arg_kind list
 (* Invariant only argument of type int63, float, or an inductive can
    have kind Kwhnf *)
 
-let kind = function
-  | Int63head0 | Int63tail0 -> [Kwhnf]
+let arity t = List.length (types t) - 1
 
-  | Int63add | Int63sub | Int63mul
-  | Int63div | Int63mod
-  | Int63lsr | Int63lsl
-  | Int63land | Int63lor | Int63lxor
-  | Int63addc | Int63subc
-  | Int63addCarryC | Int63subCarryC  | Int63mulc | Int63diveucl
-  | Int63eq | Int63lt | Int63le | Int63compare -> [Kwhnf; Kwhnf]
-
-  | Int63div21 | Int63addMulDiv -> [Kwhnf; Kwhnf; Kwhnf]
-
-  | Float64opp | Float64abs | Float64classify | Float64sqrt | Float64ofInt63
-  | Float64normfr_mantissa | Float64frshiftexp
-  | Float64next_up | Float64next_down -> [Kwhnf]
-
-  | Float64compare | Float64add | Float64sub | Float64mul
-  | Float64div | Float64ldshiftexp -> [Kwhnf;Kwhnf]
-
-let arity = function
-  | Int63head0 | Int63tail0 -> 1
-  | Int63add | Int63sub | Int63mul
-  | Int63div | Int63mod
-  | Int63lsr | Int63lsl
-  | Int63land | Int63lor | Int63lxor
-  | Int63addc | Int63subc
-  | Int63addCarryC | Int63subCarryC | Int63mulc | Int63diveucl
-  | Int63eq | Int63lt | Int63le
-  | Int63compare -> 2
-
-  | Int63div21 | Int63addMulDiv -> 3
-  | Float64opp | Float64abs | Float64classify | Float64sqrt
-  | Float64ofInt63 | Float64normfr_mantissa
-  | Float64next_up | Float64next_down
-  | Float64frshiftexp -> 1
-
-  | Float64compare | Float64add | Float64sub | Float64mul
-  | Float64div | Float64ldshiftexp -> 2
+let kind t =
+  let rec aux n = if n <= 0 then [] else Kwhnf :: aux (n - 1) in
+  aux (arity t)
 
 (** Special Entries for Register **)
-
-type prim_ind =
-  | PIT_bool
-  | PIT_carry
-  | PIT_pair
-  | PIT_cmp
-  | PIT_f_cmp
-  | PIT_f_class
-
-type prim_type =
-  | PT_int63
-  | PT_float64
 
 type op_or_type =
   | OT_op of t
@@ -205,8 +204,8 @@ type op_or_type =
 
 let prim_ind_to_string = function
   | PIT_bool -> "bool"
-  | PIT_carry -> "carry"
-  | PIT_pair -> "pair"
+  | PIT_carry _ -> "carry"
+  | PIT_pair _ -> "pair"
   | PIT_cmp -> "cmp"
   | PIT_f_cmp -> "f_cmp"
   | PIT_f_class -> "f_class"

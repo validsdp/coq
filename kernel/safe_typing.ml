@@ -1233,7 +1233,7 @@ let check_register_ind ind r env =
     check_type_cte 0;
     check_name 1 "false";
     check_type_cte 1
-  | CPrimitives.PIT_carry ->
+  | CPrimitives.PIT_carry _ ->
     check_nparams 1;
     check_nconstr 2;
     let test_type pos =
@@ -1252,7 +1252,7 @@ let check_register_ind ind r env =
     test_type 0;
     check_name 1 "C1";
     test_type 1;
-  | CPrimitives.PIT_pair ->
+  | CPrimitives.PIT_pair _ ->
     check_nparams 2;
     check_nconstr 1;
     check_name 0 "pair";

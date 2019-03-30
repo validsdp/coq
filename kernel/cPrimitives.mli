@@ -68,17 +68,17 @@ val kind : t -> args_red
 
 (** Special Entries for Register **)
 
-type prim_ind =
-  | PIT_bool
-  | PIT_carry
-  | PIT_pair
-  | PIT_cmp
-  | PIT_f_cmp
-  | PIT_f_class
-
 type prim_type =
   | PT_int63
   | PT_float64
+
+type prim_ind =
+  | PIT_bool
+  | PIT_carry of prim_type
+  | PIT_pair of prim_type * prim_type
+  | PIT_cmp
+  | PIT_f_cmp
+  | PIT_f_class
 
 type op_or_type =
   | OT_op of t
@@ -86,3 +86,9 @@ type op_or_type =
 
 val prim_ind_to_string : prim_ind -> string
 val op_or_type_to_string : op_or_type -> string
+
+type ind_or_type =
+  | PITT_ind of prim_ind
+  | PITT_type of prim_type
+
+val types : t -> ind_or_type list
