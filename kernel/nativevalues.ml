@@ -506,6 +506,7 @@ let is_float (x:t) =
 [@@ocaml.inline always]
 
 let to_float (x:t) = (Obj.magic x : Float64.t)
+[@@ocaml.inline always]
 
 let no_check_fopp x =
   mk_float (Float64.opp (to_float x))

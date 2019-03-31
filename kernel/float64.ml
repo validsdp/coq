@@ -60,6 +60,7 @@ let compare x y =
       else FNotComparable (* NaN case *)
     )
   )
+[@@ocaml.inline always]
 
 type float_class =
   | PNormal | NNormal | PSubn | NSubn | PZero | NZero | PInf | NInf | NaN
@@ -71,20 +72,32 @@ let classify x =
   | FP_zero -> if 0. < 1. /. x then PZero else NZero
   | FP_infinite -> if 0. < x then PInf else NInf
   | FP_nan -> NaN
+[@@ocaml.inline always]
 
-let mul = ( *. )
-let add = ( +. )
-let sub = ( -. )
-let div = ( /. )
-let sqrt = Pervasives.sqrt
+let mul x y = x *. y
+[@@ocaml.inline always]
 
-let of_int63 = Uint63.to_float
+let add x y = x +. y
+[@@ocaml.inline always]
+
+let sub x y = x -. y
+[@@ocaml.inline always]
+
+let div x y = x /. y
+[@@ocaml.inline always]
+
+let sqrt x = Pervasives.sqrt x
+[@@ocaml.inline always]
+
+let of_int63 x = Uint63.to_float x
+[@@ocaml.inline always]
 
 let prec = 53
 let normfr_mantissa f =
   let f = abs f in
   if f >= 0.5 && f < 1. then Uint63.of_float (ldexp f prec)
   else Uint63.zero
+[@@ocaml.inline always]
 
 let eshift = 2101 (* 2*emax + prec *)
 
@@ -94,8 +107,10 @@ let frshiftexp f =
   | FP_normal | FP_subnormal ->
   let (m, e) = frexp f in
   (m, Uint63.of_int (e + eshift))
+[@@ocaml.inline always]
 
 let ldshiftexp f e = ldexp f (snd (Uint63.to_int2 e) - eshift)
+[@@ocaml.inline always]
 
 let eta_float = ldexp 1. (-1074) (* smallest positive float (subnormal) *)
 
@@ -112,14 +127,17 @@ let next_up f =
        ldexp (f +. epsilon_float /. 2.) e
      else
        ldexp (-0.5 +. epsilon_float /. 4.) e
+[@@ocaml.inline always]
 
 let next_down f = -.(next_up (-.f))
+[@@ocaml.inline always]
 
 let equal f1 f2 =
   match classify_float f1 with
   | FP_normal | FP_subnormal | FP_infinite -> (f1 = f2)
   | FP_nan -> is_nan f2
   | FP_zero -> f1 = f2 && 1. /. f1 = 1. /. f2 (* OCaml consider 0. = -0. *)
+[@@ocaml.inline always]
 
 let hash f =
   let f = if is_nan f then nan else f in (* Consider all NaNs are equal *)
