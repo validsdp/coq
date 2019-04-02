@@ -146,7 +146,7 @@ val universes_of_global : GlobRef.t -> Univ.AUContext.t
 (** {6 Retroknowledge } *)
 
 val register_inline : Constant.t -> unit
-val register_inductive : inductive -> CPrimitives.prim_ind -> unit
+val register_inductive : inductive -> 'a CPrimitives.prim_ind -> unit
 
 (** {6 Oracle } *)
 
