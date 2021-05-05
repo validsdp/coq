@@ -646,8 +646,76 @@ and lambda_of_args cache env sigma start args =
       (fun i -> lambda_of_constr cache env sigma args.(start + i))
   else empty_args
 
+(* return a triple [(defs, c', size_c)] were defs are a list of local
+   definitions (to prepend to [let _ = c' in _] in reverse order),
+   [c'] the term [c] where too big parts are extracted and [size_c]
+   the size of [c'] *)
+let rec split_let_rec =
+  let get_name =  (* FIXME: guarantee fresh variables *)
+    let next_name = ref (-1) in
+    fun () ->
+      let () = incr next_name in
+      "native_split_let__" ^ string_of_int !next_name in
+  let ret c = [], c, 1 in
+  fun c ->
+  match c with
+  | Lrel _ | Lvar _ | Lconst _ | Lproj _ | Lint _ | Luint _ | Lfloat _
+  | Lind _ | Lval _ | Lsort _ | Llazy | Lforce -> ret c
+  | Lmeta (mv, c') -> ret @@ Lmeta (mv, split_let c')
+  | Levar (ev, a) -> ret @@ Levar (ev, Array.map split_let a)
+  | Lprod (a, b) -> ret @@ Lprod (split_let a, split_let b)
+  | Llam (n, c') -> ret @@ Llam (n, split_let c')
+  | Lrec (n, c') -> ret @@ Lrec (n, split_let c')
+  | Lprim (p, c', pr, a) -> ret @@ Lprim (p, c', pr, Array.map split_let a)
+  | Lcase (a, c', c'', br) ->
+     ret @@ Lcase (a, split_let c', split_let c'', split_let_branches br)
+  | Lif (ci, ct, cf) -> ret @@ Lif (split_let ci, split_let ct, split_let cf)
+  | Lfix (a, (n, c', c'')) ->
+     ret @@ Lfix (a, (n, Array.map split_let c', Array.map split_let c''))
+  | Lcofix (i, (n, c', c'')) ->
+     ret @@ Lcofix (i, (n, Array.map split_let c', Array.map split_let c''))
+  | Lparray (a, c') -> ret @@ Lparray (Array.map split_let a, split_let c')
+  | Lmakeblock (p, i, j, a) ->
+     ret @@ Lmakeblock (p, i, j, Array.map split_let a)
+  | Lapp (f, args) ->
+     let defs, f, size = split_let_rec f in
+     let defs, size =
+       Array.fold_left_i
+         (fun i (defs, size) c ->
+           let defs_c, c, size_c = split_let_rec c in
+           if size_c <= 42 then defs_c @ defs, size + size_c else
+             let id = Id.of_string (get_name ()) in
+             let n = Context.make_annot (Name.mk_name id) Sorts.Relevant in
+             args.(i) <- Lvar id;
+             (n, c) :: (defs_c @ defs), size + 1)
+         (defs, size)
+         args in
+     defs, Lapp (f, args), size
+  | Llet (n, a, b) ->
+     let defs, a, _ = split_let_rec a in
+     let a =
+       List.fold_left
+         (fun a (n, c) -> Llet (n, c, a))
+         a
+         defs in
+     let defs, b, _ = split_let_rec b in
+     defs, Llet (n, a, b), 1
+
+and split_let_branches br =
+  { constant_branches = Array.map split_let br.constant_branches;
+    nonconstant_branches =
+      Array.map (fun (n, c) -> n, split_let c) br.nonconstant_branches }
+
+and split_let c =
+  let defs, c, _ = split_let_rec c in
+  List.fold_left
+    (fun a (n, c) -> Llet (n, c, a))
+    c
+    defs
+
 let optimize lam =
   let lam = simplify subst_id lam in
+  let lam = split_let lam in
 (*  if Flags.vm_draw_opt () then
     (msgerrnl (str "Simplify = \n" ++ pp_lam lam);flush_all());
   let lam = remove_let subst_id lam in
